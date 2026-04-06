@@ -22,12 +22,20 @@ from .fixtures import (
     resolve_case,
 )
 from .reporting import load_run_artifacts, summarize_run_artifacts
+from .judges import (
+    BenchmarkJudge,
+    JudgeDimensionScore,
+    JudgeEvaluation,
+    MockBenchmarkJudge,
+    get_judge,
+)
 from .runners import BenchmarkRunConfig, BenchmarkRunResult, BenchmarkRunner, SkillBindingSummary
 
 __all__ = [
     "__version__",
     "BUILTIN_EXECUTION_PROFILES",
     "BenchmarkEvaluation",
+    "BenchmarkJudge",
     "BenchmarkCase",
     "BenchmarkEvaluationProfile",
     "BenchmarkEvaluationRule",
@@ -41,8 +49,12 @@ __all__ = [
     "BenchmarkSuite",
     "ExecutionProfile",
     "EvaluationCheck",
+    "get_judge",
     "ResolvedBenchmarkCase",
+    "JudgeDimensionScore",
+    "JudgeEvaluation",
     "SkillBindingSummary",
+    "MockBenchmarkJudge",
     "discover_case_files",
     "evaluate_output",
     "EvaluationRuleKind",

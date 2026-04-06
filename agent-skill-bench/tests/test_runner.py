@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 
-from agent_skill_bench import BenchmarkCase, BenchmarkMode, BenchmarkRunner, BenchmarkSuite, ResolvedBenchmarkCase, get_execution_profile
+from agent_skill_bench import BenchmarkCase, BenchmarkMode, BenchmarkRunner, BenchmarkSuite, MockBenchmarkJudge, ResolvedBenchmarkCase, get_execution_profile
 from agent_skill_bench.providers import ProviderRunResponse
 from agent_skill_bench.runners import save_run_results
 
@@ -115,3 +115,23 @@ def test_runner_marks_skill_registration_from_provider_metadata(tmp_path: Path):
     assert result.skill_binding.registration_confirmed is True
     assert result.skill_binding.registration_evidence == "provider_metadata.cli_init"
     assert result.skill_binding.usage_confirmed is None
+
+
+def test_runner_can_attach_judge_evaluation():
+    case = ResolvedBenchmarkCase(
+        suite=BenchmarkSuite(schema_version=1, suite_id="uiux", title="UIUX", default_execution_profile="isolated_prompt"),
+        case=BenchmarkCase(
+            schema_version=1,
+            id="uiux.review.judged",
+            title="Judged Sample",
+            mode=BenchmarkMode.REVIEW,
+            prompt="Review this UI",
+        ),
+        execution_profile=get_execution_profile("isolated_prompt"),
+    )
+
+    result = BenchmarkRunner(FakeProvider(), judge=MockBenchmarkJudge()).run_case(case)
+
+    assert result.judge_evaluation is not None
+    assert result.judge_evaluation.judge_name == "mock"
+    assert result.judge_evaluation.metadata["case_mode"] == "Review"

@@ -10,6 +10,7 @@ from typing import Iterable
 
 from .evaluation import BenchmarkEvaluation, evaluate_output
 from .fixtures import ResolvedBenchmarkCase, resolve_case
+from .judges import BenchmarkJudge, JudgeEvaluation
 from .providers.base import BenchmarkProvider
 
 
@@ -66,6 +67,7 @@ class BenchmarkRunResult:
     metadata: dict[str, str | int | float | bool] = field(default_factory=dict)
     skill_binding: SkillBindingSummary = field(default_factory=SkillBindingSummary)
     evaluation: BenchmarkEvaluation | None = None
+    judge_evaluation: JudgeEvaluation | None = None
     evaluation_profile: str | None = None
     skill_paths: list[str] = field(default_factory=list)
     source_path: Path | None = None
@@ -87,6 +89,9 @@ class BenchmarkRunResult:
             "metadata": dict(self.metadata),
             "skill_binding": self.skill_binding.to_dict(),
             "evaluation": self.evaluation.to_dict() if self.evaluation is not None else None,
+            "judge_evaluation": (
+                self.judge_evaluation.to_dict() if self.judge_evaluation is not None else None
+            ),
             "source_path": str(self.source_path) if self.source_path else None,
         }
 
@@ -104,8 +109,9 @@ def save_run_results(results: Iterable[BenchmarkRunResult], output_path: str | P
 class BenchmarkRunner:
     """Execute resolved cases through a provider and normalize results."""
 
-    def __init__(self, provider: BenchmarkProvider):
+    def __init__(self, provider: BenchmarkProvider, *, judge: BenchmarkJudge | None = None):
         self.provider = provider
+        self.judge = judge
 
     def run_case(self, case: ResolvedBenchmarkCase) -> BenchmarkRunResult:
         """Run one resolved benchmark case."""
@@ -114,6 +120,15 @@ class BenchmarkRunner:
         response = self.provider.run_case(case)
         duration = perf_counter() - started_at
         metadata = dict(response.metadata)
+
+        evaluation = evaluate_output(case, response.output_text)
+        judge_evaluation = None
+        if self.judge is not None:
+            judge_evaluation = self.judge.evaluate_case(
+                case,
+                output_text=response.output_text,
+                rule_evaluation=evaluation,
+            )
 
         return BenchmarkRunResult(
             case_id=case.id,
@@ -128,7 +143,8 @@ class BenchmarkRunner:
             duration_seconds=duration,
             metadata=metadata,
             skill_binding=_summarize_skill_binding(case, metadata),
-            evaluation=evaluate_output(case, response.output_text),
+            evaluation=evaluation,
+            judge_evaluation=judge_evaluation,
             source_path=case.source_path,
         )
 

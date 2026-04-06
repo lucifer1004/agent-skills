@@ -177,6 +177,7 @@ def test_cli_report_summarizes_saved_run_artifacts(tmp_path: Path, capsys):
                     "provider_name": "mock",
                     "mode": "Generate",
                     "evaluation": {"passed": True, "failure_modes": []},
+                    "judge_evaluation": {"judge_name": "mock", "passed": True},
                 },
                 {
                     "case_id": "uiux.review.one",
@@ -184,6 +185,7 @@ def test_cli_report_summarizes_saved_run_artifacts(tmp_path: Path, capsys):
                     "provider_name": "claude",
                     "mode": "Review",
                     "evaluation": {"passed": False, "failure_modes": ["no_code_fences"]},
+                    "judge_evaluation": {"judge_name": "mock", "passed": False},
                 },
             ]
         ),
@@ -196,4 +198,49 @@ def test_cli_report_summarizes_saved_run_artifacts(tmp_path: Path, capsys):
     output = json.loads(capsys.readouterr().out)
     assert output["total_runs"] == 2
     assert output["passed_runs"] == 1
+    assert output["judged_runs"] == 2
     assert output["top_failure_modes"] == [{"code": "no_code_fences", "count": 1}]
+
+
+def test_cli_run_can_attach_mock_judge(tmp_path: Path, capsys, monkeypatch):
+    suite_dir = tmp_path / "agent-skill-uiux" / "benchmarks"
+    case_dir = suite_dir / "cases"
+    suite_dir.mkdir(parents=True)
+    case_dir.mkdir()
+    (suite_dir / "suite.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "suite_id": "uiux",
+                "title": "UIUX Suite",
+                "default_execution_profile": "isolated_prompt"
+            }
+        ),
+        encoding="utf-8",
+    )
+    case = case_dir / "sample.json"
+    case.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "id": "uiux.generate.judged",
+                "title": "CLI Case",
+                "mode": "Generate",
+                "prompt": "Design a dashboard.",
+                "expectations": {
+                    "must_cover": [],
+                    "must_avoid": [],
+                    "golden_signals": []
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(tmp_path)
+    exit_code = main(["run", "--provider", "mock", "--judge", "mock", "--case", str(case)])
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output[0]["judge_evaluation"]["judge_name"] == "mock"
+    assert output[0]["judge_evaluation"]["dimensions"][0]["name"] == "contract_adherence"

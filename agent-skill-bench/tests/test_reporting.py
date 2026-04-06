@@ -19,6 +19,7 @@ def test_summarize_run_artifacts_groups_pass_fail_counts(tmp_path: Path):
                     "provider_name": "mock",
                     "mode": "Generate",
                     "evaluation": {"passed": True, "failure_modes": []},
+                    "judge_evaluation": {"judge_name": "mock", "passed": True},
                 },
                 {
                     "case_id": "uiux.review.one",
@@ -29,6 +30,7 @@ def test_summarize_run_artifacts_groups_pass_fail_counts(tmp_path: Path):
                         "passed": False,
                         "failure_modes": ["required_headings_present", "no_code_fences"],
                     },
+                    "judge_evaluation": {"judge_name": "mock", "passed": False},
                 },
                 {
                     "case_id": "pixi.generate.one",
@@ -49,9 +51,12 @@ def test_summarize_run_artifacts_groups_pass_fail_counts(tmp_path: Path):
     assert summary["passed_runs"] == 1
     assert summary["failed_runs"] == 2
     assert summary["pass_rate"] == 1 / 3
+    assert summary["judged_runs"] == 2
+    assert summary["judge_passed_runs"] == 1
+    assert summary["judge_pass_rate"] == 0.5
     assert summary["by_suite"][0]["key"] == "pixi"
     assert summary["by_suite"][0]["failed"] == 1
     assert summary["by_suite"][1]["key"] == "uiux"
     assert summary["by_suite"][1]["passed"] == 1
+    assert summary["by_judge"] == [{"key": "mock", "total": 2, "passed": 1, "failed": 1, "pass_rate": 0.5}]
     assert summary["top_failure_modes"][0] == {"code": "no_code_fences", "count": 2}
-

@@ -11,6 +11,7 @@ import sys
 from typing import Sequence
 
 from .discovery import discover_case_files
+from .judges import get_judge
 from .providers import get_provider
 from .reporting import load_run_artifacts, summarize_run_artifacts
 from .runners import BenchmarkRunConfig, BenchmarkRunner, save_run_results
@@ -39,7 +40,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             timeout_seconds=args.timeout_seconds,
             cli_path=args.cli_path,
         )
-        runner = BenchmarkRunner(provider)
+        judge = get_judge(args.judge) if args.judge else None
+        runner = BenchmarkRunner(provider, judge=judge)
         case_paths = _resolve_case_paths(args.root, args.case)
         config = BenchmarkRunConfig(
             provider_name=provider.name,
@@ -82,6 +84,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     run = subparsers.add_parser("run", help="Run benchmark cases through a provider")
     run.add_argument("--provider", default="mock", help="Provider name")
+    run.add_argument("--judge", help="Optional judge name")
     run.add_argument("--root", type=Path, help="Collection root to discover cases from")
     run.add_argument("--cwd", type=Path, help="Optional provider working directory override")
     run.add_argument("--system-prompt", help="Optional provider system prompt")

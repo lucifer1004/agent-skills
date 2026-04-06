@@ -60,6 +60,7 @@ Typical commands:
 - `pixi run test`
 - `pixi run bench -- --help`
 - `pixi run bench -- report path/to/run.json`
+- `pixi run bench -- run --provider mock --judge mock --case path/to/case.json`
 
 Benchmark runs can also inject explicit skills instead of inheriting whatever is installed in the user's Claude environment:
 
@@ -85,8 +86,12 @@ Saved run artifacts also include an `evaluation` block. In the current implement
 Use `agent-skill-bench report` to aggregate one or more saved run artifacts into a single summary with:
 
 - overall pass rate
+- optional judge pass rate when `judge_evaluation` is present
 - pass/fail counts by suite, mode, and provider
+- pass/fail counts by judge
 - top repeated failure-mode codes
+
+Runs can also attach a `judge_evaluation` block via `--judge`. The current built-in `mock` judge is deterministic and exists to validate the judge pipeline; it is not a substitute for a real model-based judge.
 
 ## Layout
 
