@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "id": "uiux.adapt.repo-case",
+  "title": "Sample Repo Case",
+  "mode": "Adapt",
+  "prompt": "Adapt this dashboard.",
+  "expectations": {
+    "must_cover": [],
+    "must_avoid": [],
+    "golden_signals": []
+  },
+  "repo_path": "../fixtures-repo",
+  "cwd": "app"
+}

@@ -1,0 +1,10 @@
+.DS_Store
+__pycache__/
+.pytest_cache/
+.pixi/
+.omc/
+.agent-skill-bench/
+/agent-skill-uiux/
+/agent-skill-pixi/
+/claude-skill-typst/
+/ui-ux-pro-max-skill/

@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "id": "uiux.review.prompt-with-context-file",
+  "title": "Sample Prompt With Context File",
+  "mode": "Review",
+  "prompt": "Review this settings screen.",
+  "context": [
+    "mobile-first"
+  ],
+  "context_files": [
+    "context-notes.txt"
+  ],
+  "expectations": {
+    "must_cover": [],
+    "must_avoid": [],
+    "golden_signals": []
+  }
+}

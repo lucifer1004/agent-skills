@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "id": "uiux.generate.sample",
+  "title": "Sample Generate Case",
+  "mode": "Generate",
+  "prompt": "Design a pricing page.",
+  "context": [
+    "desktop-first",
+    "comparison clarity matters"
+  ],
+  "expectations": {
+    "must_cover": [
+      "goal clarity",
+      "primary action"
+    ],
+    "must_avoid": [
+      "style before structure"
+    ],
+    "golden_signals": [
+      "treats comparison as core task"
+    ]
+  },
+  "tags": [
+    "generate",
+    "pricing"
+  ]
+}

@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agent-skill-bench"
+version = "0.1.0"
+description = "Shared benchmarking infrastructure for published agent skills."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+  { name = "Zihua Wu", email = "13583761+lucifer1004@users.noreply.github.com" },
+]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "claude-agent-sdk>=0.1.48",
+]
+
+[project.scripts]
+agent-skill-bench = "agent_skill_bench.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agent_skill_bench"]

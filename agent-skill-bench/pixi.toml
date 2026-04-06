@@ -1,0 +1,30 @@
+[workspace]
+authors = ["Zihua Wu <13583761+lucifer1004@users.noreply.github.com>"]
+channels = ["conda-forge"]
+name = "agent-skill-bench"
+platforms = ["osx-arm64", "linux-64"]
+preview = ["pixi-build"]
+version = "0.1.0"
+
+[package]
+name = "agent-skill-bench"
+version = "0.1.0"
+
+[package.build]
+backend = { name = "pixi-build-python", version = "*" }
+
+[package.host-dependencies]
+hatchling = "*"
+
+[package.run-dependencies]
+python = ">=3.12,<3.13"
+
+[dependencies]
+agent-skill-bench = { path = "." }
+pytest = ">=9"
+
+[pypi-dependencies]
+claude-agent-sdk = ">=0.1.48"
+
+[tasks]
+test = "pytest tests/ -v"

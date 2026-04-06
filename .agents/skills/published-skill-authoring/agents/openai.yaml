@@ -1,0 +1,7 @@
+interface:
+  display_name: "Published Skill Authoring"
+  short_description: "Create and maintain published skills"
+  default_prompt: "Use $published-skill-authoring to create or refine a published agent skill repository."
+
+policy:
+  allow_implicit_invocation: true

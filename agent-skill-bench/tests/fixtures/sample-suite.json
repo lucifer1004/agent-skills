@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "suite_id": "uiux",
+  "title": "UI/UX Benchmark Suite",
+  "default_skills": [
+    "../fixtures-skills/uiux"
+  ],
+  "default_execution_profile": "isolated_prompt",
+  "default_evaluation_profile": "uiux-default",
+  "benchmark_prompt": {
+    "preamble": [
+      "You are being benchmarked on a UI/UX skill."
+    ],
+    "shared_rules": [
+      "Do not ask follow-up questions.",
+      "Make reasonable assumptions from the provided context.",
+      "Do not output code or HTML unless the request explicitly asks for it.",
+      "Do not repeat sections or restart the answer.",
+      "Use the required headings exactly once and in order."
+    ],
+    "mode_headings": {
+      "Generate": [
+        "Screen Goal",
+        "Primary User Task",
+        "Information Priority",
+        "Layout Blocks",
+        "Key Components",
+        "Required States",
+        "Visual Rules",
+        "Risks"
+      ]
+    }
+  }
+}

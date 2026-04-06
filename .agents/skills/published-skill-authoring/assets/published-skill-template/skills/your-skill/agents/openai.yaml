@@ -1,0 +1,7 @@
+interface:
+  display_name: "Your Skill"
+  short_description: "Short user-facing description"
+  default_prompt: "Use $your-skill to help with the target workflow."
+
+policy:
+  allow_implicit_invocation: true
