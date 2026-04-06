@@ -7,6 +7,29 @@
   ],
   "default_execution_profile": "isolated_prompt",
   "default_evaluation_profile": "uiux-default",
+  "evaluation_profiles": {
+    "uiux-default": {
+      "forbid_code_fences": true,
+      "require_first_heading": true,
+      "mode_rules": {
+        "Generate": [
+          {
+            "code": "generate_required_states_mentions_state_terms",
+            "kind": "section_matches_regex",
+            "section": "Required States",
+            "pattern": "\\b(loading|error|empty|success|disabled|focus|selected|hover|active)\\b",
+            "message": "Required States names concrete state coverage."
+          },
+          {
+            "code": "generate_risks_section_non_empty",
+            "kind": "section_non_empty",
+            "section": "Risks",
+            "message": "Risks section is non-empty."
+          }
+        ]
+      }
+    }
+  },
   "benchmark_prompt": {
     "preamble": [
       "You are being benchmarked on a UI/UX skill."

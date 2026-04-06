@@ -19,6 +19,7 @@ The framework is organized around four distinct concepts:
 - `suite.json`: suite-level defaults such as the default skill, execution profile, and evaluation profile
 - case files under `benchmarks/cases/`: task, context, and expectations
 - suite-level benchmark prompt contracts: shared run instructions and mode-specific output headings
+- suite-owned evaluation profiles: declarative rule sets that the generic bench engine interprets
 - execution profiles: stable run policies such as `isolated_prompt` and `isolated_repo_copy`
 - run artifacts: saved provider outputs and metadata for each benchmark execution
 
@@ -28,6 +29,13 @@ For prompt design, the framework now separates:
 - the suite's `benchmark_prompt`, which adds stable benchmarking rules and required output headings
 
 This keeps cases realistic while still producing outputs that are comparable across runs.
+
+For evaluation, `agent-skill-bench` deliberately separates framework logic from domain logic:
+
+- the package provides generic checks such as non-empty output, required-heading presence/order, and declarative rule execution
+- each suite owns its own `evaluation_profiles` data in `suite.json`
+
+That boundary matters. Domain-specific semantics such as UI/UX section names, keyword patterns, or anti-pattern phrases belong to the suite, not to the shared bench package.
 
 ## CLI Behavior
 
@@ -66,6 +74,12 @@ Each saved run artifact now distinguishes three different states:
 - `registered_skills`: what the Claude CLI reported as available in its `system/init` event
 
 This is intentional. "Injected" and "registered in the Claude session" are not the same thing, and neither one by itself proves behavioral use in the final answer. The normalized `skill_binding` block in each run artifact makes that distinction explicit.
+
+Saved run artifacts also include an `evaluation` block. In the current implementation this is rule-based, not judge-based:
+
+- `contract_checks` cover generic output-contract requirements
+- `rule_checks` execute suite-owned declarative rules from the selected evaluation profile
+- `failure_modes` provides a normalized list of failed check codes for regression tracking
 
 ## Layout
 

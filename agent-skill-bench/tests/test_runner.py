@@ -31,7 +31,6 @@ def test_runner_normalizes_provider_output():
             prompt="Review this UI",
         ),
         execution_profile=get_execution_profile("isolated_prompt"),
-        evaluation_profile="uiux-default",
     )
 
     result = BenchmarkRunner(FakeProvider()).run_case(case)
@@ -46,6 +45,8 @@ def test_runner_normalizes_provider_output():
     assert result.execution_profile == "isolated_prompt"
     assert result.skill_binding.registration_status == "not_requested"
     assert result.skill_binding.registration_confirmed is None
+    assert result.evaluation is not None
+    assert result.evaluation.profile is None
     assert result.duration_seconds >= 0
 
 
@@ -71,6 +72,7 @@ def test_save_run_results_persists_json(tmp_path: Path):
     assert payload[0]["case_id"] == "uiux.generate.sample"
     assert payload[0]["provider_name"] == "fake"
     assert payload[0]["skill_binding"]["registration_status"] == "not_requested"
+    assert "evaluation" in payload[0]
 
 
 def test_runner_marks_skill_registration_from_provider_metadata(tmp_path: Path):

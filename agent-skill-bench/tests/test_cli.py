@@ -36,6 +36,28 @@ def test_cli_run_mock_outputs_results(tmp_path: Path, capsys, monkeypatch):
                 "title": "UIUX Suite",
                 "default_skills": ["../skills/uiux"],
                 "default_execution_profile": "isolated_prompt",
+                "default_evaluation_profile": "uiux-default",
+                "evaluation_profiles": {
+                    "uiux-default": {
+                        "forbid_code_fences": True,
+                        "require_first_heading": True,
+                        "mode_rules": {
+                            "Generate": [
+                                {
+                                    "code": "generate_has_layout_blocks",
+                                    "kind": "section_non_empty",
+                                    "section": "Layout Blocks",
+                                    "message": "Layout Blocks section is non-empty."
+                                }
+                            ]
+                        }
+                    }
+                },
+                "benchmark_prompt": {
+                    "mode_headings": {
+                        "Generate": ["Screen Goal", "Layout Blocks"]
+                    }
+                }
             }
         ),
         encoding="utf-8",
@@ -73,6 +95,7 @@ def test_cli_run_mock_outputs_results(tmp_path: Path, capsys, monkeypatch):
     assert output[0]["skill_binding"]["requested_skills"] == ["uiux"]
     assert output[0]["skill_binding"]["registration_status"] == "unconfirmed"
     assert output[0]["output_text"].startswith("[mock:Generate]")
+    assert output[0]["evaluation"]["profile"] == "uiux-default"
     saved_prefix = "Saved benchmark results to "
     assert captured.err.startswith(saved_prefix)
     saved_path = Path(captured.err.removeprefix(saved_prefix).strip())
@@ -90,15 +113,15 @@ def test_cli_run_respects_explicit_output_and_skill_override(tmp_path: Path, cap
     (override_skill / "SKILL.md").write_text("Manual skill", encoding="utf-8")
     (suite_dir / "suite.json").write_text(
         json.dumps(
-            {
-                "schema_version": 1,
-                "suite_id": "uiux",
-                "title": "UIUX Suite",
-                "default_execution_profile": "isolated_prompt",
-            }
-        ),
-        encoding="utf-8",
-    )
+                {
+                    "schema_version": 1,
+                    "suite_id": "uiux",
+                    "title": "UIUX Suite",
+                    "default_execution_profile": "isolated_prompt",
+                }
+            ),
+            encoding="utf-8",
+        )
     case = case_dir / "sample.json"
     case.write_text(
         json.dumps(

@@ -8,6 +8,7 @@ from pathlib import Path
 from time import perf_counter
 from typing import Iterable
 
+from .evaluation import BenchmarkEvaluation, evaluate_output
 from .fixtures import ResolvedBenchmarkCase, resolve_case
 from .providers.base import BenchmarkProvider
 
@@ -64,6 +65,7 @@ class BenchmarkRunResult:
     duration_seconds: float
     metadata: dict[str, str | int | float | bool] = field(default_factory=dict)
     skill_binding: SkillBindingSummary = field(default_factory=SkillBindingSummary)
+    evaluation: BenchmarkEvaluation | None = None
     evaluation_profile: str | None = None
     skill_paths: list[str] = field(default_factory=list)
     source_path: Path | None = None
@@ -84,6 +86,7 @@ class BenchmarkRunResult:
             "duration_seconds": self.duration_seconds,
             "metadata": dict(self.metadata),
             "skill_binding": self.skill_binding.to_dict(),
+            "evaluation": self.evaluation.to_dict() if self.evaluation is not None else None,
             "source_path": str(self.source_path) if self.source_path else None,
         }
 
@@ -125,6 +128,7 @@ class BenchmarkRunner:
             duration_seconds=duration,
             metadata=metadata,
             skill_binding=_summarize_skill_binding(case, metadata),
+            evaluation=evaluate_output(case, response.output_text),
             source_path=case.source_path,
         )
 

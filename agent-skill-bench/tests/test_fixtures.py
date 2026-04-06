@@ -39,6 +39,7 @@ def test_load_suite_from_json():
     assert suite.suite_id == "uiux"
     assert suite.default_execution_profile == "isolated_prompt"
     assert suite.default_evaluation_profile == "uiux-default"
+    assert "uiux-default" in suite.evaluation_profiles
     assert len(suite.resolve_default_skills()) == 1
     assert suite.resolve_default_skills()[0].name == "uiux"
     assert suite.benchmark_prompt is not None
@@ -91,6 +92,22 @@ def test_resolve_case_applies_suite_defaults(tmp_path: Path):
           "default_skills": ["../skills/uiux"],
           "default_execution_profile": "isolated_prompt",
           "default_evaluation_profile": "uiux-default",
+          "evaluation_profiles": {
+            "uiux-default": {
+              "forbid_code_fences": true,
+              "require_first_heading": true,
+              "mode_rules": {
+                "Generate": [
+                  {
+                    "code": "generate_has_risks",
+                    "kind": "section_non_empty",
+                    "section": "Layout Blocks",
+                    "message": "Layout Blocks section is non-empty."
+                  }
+                ]
+              }
+            }
+          },
           "benchmark_prompt": {
             "preamble": ["You are being benchmarked on a UI/UX skill."],
             "shared_rules": ["Use the required headings exactly once and in order."],
@@ -126,6 +143,7 @@ def test_resolve_case_applies_suite_defaults(tmp_path: Path):
     assert resolved.mode is BenchmarkMode.GENERATE
     assert resolved.execution_profile == get_execution_profile("isolated_prompt")
     assert resolved.evaluation_profile == "uiux-default"
+    assert resolved.suite.resolve_evaluation_profile("uiux-default") is not None
     assert resolved.skill_paths == [skill_dir.resolve()]
     rendered = resolved.render_prompt()
     assert "You are being benchmarked on a UI/UX skill." in rendered

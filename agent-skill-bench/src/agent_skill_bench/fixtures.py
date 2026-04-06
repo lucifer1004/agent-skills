@@ -24,6 +24,15 @@ class BenchmarkKind(StrEnum):
     REPO = "repo"
 
 
+class EvaluationRuleKind(StrEnum):
+    """Supported generic rule kinds for rule-based evaluation."""
+
+    SECTION_NON_EMPTY = "section_non_empty"
+    SECTION_MATCHES_REGEX = "section_matches_regex"
+    SECTION_CONTAINS_LIST_ITEM = "section_contains_list_item"
+    OUTPUT_NOT_MATCHES_REGEX = "output_not_matches_regex"
+
+
 @dataclass(slots=True)
 class BenchmarkExpectations:
     """Evaluation expectations for one benchmark case."""
@@ -123,6 +132,89 @@ class BenchmarkPromptContract:
 
         sections.append("Return only the final answer.")
         return "\n\n".join(section for section in sections if section)
+
+
+@dataclass(slots=True)
+class BenchmarkEvaluationRule:
+    """Declarative rule definition owned by one benchmark suite."""
+
+    code: str
+    kind: EvaluationRuleKind
+    message: str
+    section: str | None = None
+    pattern: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, object], *, field_name: str) -> "BenchmarkEvaluationRule":
+        """Build one declarative evaluation rule from JSON data."""
+
+        required = ("code", "kind", "message")
+        missing = [key for key in required if key not in data]
+        if missing:
+            raise ValueError(f"{field_name} is missing required keys: {', '.join(missing)}")
+
+        kind = EvaluationRuleKind(str(data["kind"]))
+        section = _optional_string(data.get("section"), f"{field_name}.section")
+        pattern = _optional_string(data.get("pattern"), f"{field_name}.pattern")
+
+        if kind in {
+            EvaluationRuleKind.SECTION_NON_EMPTY,
+            EvaluationRuleKind.SECTION_MATCHES_REGEX,
+            EvaluationRuleKind.SECTION_CONTAINS_LIST_ITEM,
+        } and section is None:
+            raise ValueError(f"{field_name} requires 'section'.")
+        if kind in {
+            EvaluationRuleKind.SECTION_MATCHES_REGEX,
+            EvaluationRuleKind.OUTPUT_NOT_MATCHES_REGEX,
+        } and pattern is None:
+            raise ValueError(f"{field_name} requires 'pattern'.")
+
+        return cls(
+            code=str(data["code"]),
+            kind=kind,
+            message=str(data["message"]),
+            section=section,
+            pattern=pattern,
+        )
+
+
+@dataclass(slots=True)
+class BenchmarkEvaluationProfile:
+    """Suite-local rule set selected by a case or suite default."""
+
+    name: str
+    forbid_code_fences: bool = True
+    require_first_heading: bool = True
+    mode_rules: dict[BenchmarkMode, list[BenchmarkEvaluationRule]] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(
+        cls,
+        name: str,
+        data: dict[str, object],
+        *,
+        field_name: str,
+    ) -> "BenchmarkEvaluationProfile":
+        """Build one evaluation profile from JSON data."""
+
+        mode_rules_raw = _optional_dict(data.get("mode_rules"), f"{field_name}.mode_rules") or {}
+        mode_rules: dict[BenchmarkMode, list[BenchmarkEvaluationRule]] = {}
+        for mode_name, raw_rules in mode_rules_raw.items():
+            rule_items = _list_of_dicts(raw_rules, f"{field_name}.mode_rules.{mode_name}")
+            mode_rules[BenchmarkMode(str(mode_name))] = [
+                BenchmarkEvaluationRule.from_dict(
+                    rule,
+                    field_name=f"{field_name}.mode_rules.{mode_name}[{index}]",
+                )
+                for index, rule in enumerate(rule_items)
+            ]
+
+        return cls(
+            name=name,
+            forbid_code_fences=_optional_bool(data.get("forbid_code_fences"), f"{field_name}.forbid_code_fences", default=True),
+            require_first_heading=_optional_bool(data.get("require_first_heading"), f"{field_name}.require_first_heading", default=True),
+            mode_rules=mode_rules,
+        )
 
 
 @dataclass(slots=True)
@@ -246,6 +338,7 @@ class BenchmarkSuite:
     default_skills: list[str] = field(default_factory=list)
     default_execution_profile: str = "isolated_prompt"
     default_evaluation_profile: str | None = None
+    evaluation_profiles: dict[str, BenchmarkEvaluationProfile] = field(default_factory=dict)
     benchmark_prompt: BenchmarkPromptContract | None = None
     source_path: Path | None = None
 
@@ -273,6 +366,9 @@ class BenchmarkSuite:
                 data.get("default_evaluation_profile"),
                 "default_evaluation_profile",
             ),
+            evaluation_profiles=_evaluation_profiles(
+                _optional_dict(data.get("evaluation_profiles"), "evaluation_profiles") or {}
+            ),
             benchmark_prompt=BenchmarkPromptContract.from_dict(
                 _optional_dict(data.get("benchmark_prompt"), "benchmark_prompt")
             ),
@@ -286,6 +382,22 @@ class BenchmarkSuite:
             raise ValueError("Cannot resolve suite skills without source_path.")
         base_dir = self.source_path.parent
         return [_resolve_path(base_dir, relative_path) for relative_path in self.default_skills]
+
+    def resolve_evaluation_profile(
+        self,
+        name: str | None,
+    ) -> BenchmarkEvaluationProfile | None:
+        """Resolve an evaluation profile from suite-local definitions."""
+
+        if name is None:
+            return None
+        try:
+            return self.evaluation_profiles[name]
+        except KeyError as exc:
+            available = ", ".join(sorted(self.evaluation_profiles)) or "<none>"
+            raise ValueError(
+                f"Unknown evaluation profile {name!r} for suite {self.suite_id!r}. Available: {available}"
+            ) from exc
 
 
 @dataclass(frozen=True, slots=True)
@@ -479,6 +591,40 @@ def _optional_dict(value: object, field_name: str) -> dict[str, object] | None:
     if value is None:
         return None
     return _dict_value(value, field_name)
+
+
+def _optional_bool(value: object, field_name: str, *, default: bool) -> bool:
+    """Validate optional boolean fields."""
+
+    if value is None:
+        return default
+    if not isinstance(value, bool):
+        raise ValueError(f"Field {field_name!r} must be a boolean when present.")
+    return value
+
+
+def _list_of_dicts(value: object, field_name: str) -> list[dict[str, object]]:
+    """Validate list[object] where every element is a JSON object."""
+
+    if not isinstance(value, list):
+        raise ValueError(f"Field {field_name!r} must be a list.")
+    items: list[dict[str, object]] = []
+    for index, item in enumerate(value):
+        items.append(_dict_value(item, f"{field_name}[{index}]"))
+    return items
+
+
+def _evaluation_profiles(value: dict[str, object]) -> dict[str, BenchmarkEvaluationProfile]:
+    """Parse suite-local evaluation profile definitions."""
+
+    profiles: dict[str, BenchmarkEvaluationProfile] = {}
+    for name, payload in value.items():
+        profiles[str(name)] = BenchmarkEvaluationProfile.from_dict(
+            str(name),
+            _dict_value(payload, f"evaluation_profiles.{name}"),
+            field_name=f"evaluation_profiles.{name}",
+        )
+    return profiles
 
 
 def _resolve_path(base_dir: Path, path_value: str) -> Path:
