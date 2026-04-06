@@ -39,7 +39,9 @@ def test_load_suite_from_json():
     assert suite.suite_id == "uiux"
     assert suite.default_execution_profile == "isolated_prompt"
     assert suite.default_evaluation_profile == "uiux-default"
+    assert suite.default_judge_profile == "uiux-judge"
     assert "uiux-default" in suite.evaluation_profiles
+    assert "uiux-judge" in suite.judge_profiles
     assert len(suite.resolve_default_skills()) == 1
     assert suite.resolve_default_skills()[0].name == "uiux"
     assert suite.benchmark_prompt is not None
@@ -92,6 +94,7 @@ def test_resolve_case_applies_suite_defaults(tmp_path: Path):
           "default_skills": ["../skills/uiux"],
           "default_execution_profile": "isolated_prompt",
           "default_evaluation_profile": "uiux-default",
+          "default_judge_profile": "uiux-judge",
           "evaluation_profiles": {
             "uiux-default": {
               "forbid_code_fences": true,
@@ -106,6 +109,16 @@ def test_resolve_case_applies_suite_defaults(tmp_path: Path):
                   }
                 ]
               }
+            }
+          },
+          "judge_profiles": {
+            "uiux-judge": {
+              "dimensions": [
+                {
+                  "name": "task_fit",
+                  "description": "Does the answer perform the task?"
+                }
+              ]
             }
           },
           "benchmark_prompt": {
@@ -143,7 +156,9 @@ def test_resolve_case_applies_suite_defaults(tmp_path: Path):
     assert resolved.mode is BenchmarkMode.GENERATE
     assert resolved.execution_profile == get_execution_profile("isolated_prompt")
     assert resolved.evaluation_profile == "uiux-default"
+    assert resolved.judge_profile == "uiux-judge"
     assert resolved.suite.resolve_evaluation_profile("uiux-default") is not None
+    assert resolved.suite.resolve_judge_profile("uiux-judge") is not None
     assert resolved.skill_paths == [skill_dir.resolve()]
     rendered = resolved.render_prompt()
     assert "You are being benchmarked on a UI/UX skill." in rendered

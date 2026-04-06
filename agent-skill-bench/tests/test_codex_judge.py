@@ -33,7 +33,48 @@ def test_codex_judge_runs_cli_with_output_schema(monkeypatch):
             suite_id="uiux",
             title="UIUX",
             default_execution_profile="isolated_prompt",
-        ),
+            default_judge_profile="uiux-judge",
+                judge_profiles={
+                    "uiux-judge": BenchmarkSuite.from_dict(
+                        {
+                            "schema_version": 1,
+                            "suite_id": "uiux",
+                        "title": "UIUX",
+                        "default_execution_profile": "isolated_prompt",
+                        "judge_profiles": {
+                            "uiux-judge": {
+                                "preamble": [
+                                    "You are judging one benchmark output for a UI/UX skill."
+                                ],
+                                "shared_rules": [
+                                    "Be strict about structural compliance before style commentary."
+                                ],
+                                "dimensions": [
+                                    {
+                                        "name": "task_fit",
+                                        "description": "Does the answer perform the requested task?"
+                                    },
+                                    {
+                                        "name": "contract_adherence",
+                                        "description": "Does the answer follow the required output contract?"
+                                    },
+                                    {
+                                        "name": "expectation_coverage",
+                                        "description": "Does the answer cover the expectations?"
+                                    },
+                                    {
+                                        "name": "actionability",
+                                        "description": "Could a downstream user act on the answer?"
+                                    }
+                                ],
+                                "pass_guidance": "Set passed=true only if the answer is benchmark-worthy.",
+                                "include_rule_evaluation": True
+                            }
+                            }
+                        }
+                    ).judge_profiles["uiux-judge"],
+                },
+            ),
         case=BenchmarkCase(
             schema_version=1,
             id="uiux.generate.codex-judge",
@@ -87,6 +128,14 @@ def test_codex_judge_runs_cli_with_output_schema(monkeypatch):
     assert captured["cmd"][:2] == ["codex", "exec"]
     assert "--output-schema" in captured["cmd"]
     assert captured["schema"]["type"] == "object"
+    assert captured["schema"]["properties"]["dimensions"]["items"]["properties"]["name"]["enum"] == [
+        "task_fit",
+        "contract_adherence",
+        "expectation_coverage",
+        "actionability",
+    ]
+    assert "Be strict about structural compliance before style commentary." in captured["input"]
+    assert "Set passed=true only if the answer is benchmark-worthy." in captured["input"]
     assert "failure_modes" in captured["input"]
     assert result.judge_name == "codex"
     assert result.passed is True

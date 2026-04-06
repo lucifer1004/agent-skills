@@ -7,6 +7,7 @@
   ],
   "default_execution_profile": "isolated_prompt",
   "default_evaluation_profile": "uiux-default",
+  "default_judge_profile": "uiux-judge",
   "evaluation_profiles": {
     "uiux-default": {
       "forbid_code_fences": true,
@@ -28,6 +29,36 @@
           }
         ]
       }
+    }
+  },
+  "judge_profiles": {
+    "uiux-judge": {
+      "preamble": [
+        "You are judging one benchmark output for a UI/UX skill."
+      ],
+      "shared_rules": [
+        "Be strict about structural compliance before style commentary."
+      ],
+      "dimensions": [
+        {
+          "name": "task_fit",
+          "description": "Does the answer actually perform the requested UI/UX task?"
+        },
+        {
+          "name": "contract_adherence",
+          "description": "Does the answer follow the required output headings and structure?"
+        },
+        {
+          "name": "expectation_coverage",
+          "description": "Does the answer cover the benchmark expectations?"
+        },
+        {
+          "name": "actionability",
+          "description": "Could a designer or engineer act on the answer?"
+        }
+      ],
+      "pass_guidance": "Set passed=true only if the output is strong enough to be used as a benchmark-quality answer.",
+      "include_rule_evaluation": true
     }
   },
   "benchmark_prompt": {

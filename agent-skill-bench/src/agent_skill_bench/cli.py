@@ -56,6 +56,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             suite_filter=args.suite,
             case_ids=set(args.case_id),
             execution_profile=args.execution_profile,
+            judge_profile=args.judge_profile,
             skill_paths=[path.resolve() for path in args.skill] if args.skill else None,
             no_skills=args.no_skills,
         )
@@ -122,6 +123,10 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument(
         "--execution-profile",
         help="Execution profile override. Defaults to the case or suite profile.",
+    )
+    run.add_argument(
+        "--judge-profile",
+        help="Judge profile override. Defaults to the case or suite judge profile.",
     )
     run.add_argument(
         "--results-dir",

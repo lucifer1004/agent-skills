@@ -20,6 +20,7 @@ The framework is organized around four distinct concepts:
 - case files under `benchmarks/cases/`: task, context, and expectations
 - suite-level benchmark prompt contracts: shared run instructions and mode-specific output headings
 - suite-owned evaluation profiles: declarative rule sets that the generic bench engine interprets
+- suite-owned judge profiles: declarative judge prompts, dimensions, and pass guidance interpreted by judge adapters
 - execution profiles: stable run policies such as `isolated_prompt` and `isolated_repo_copy`
 - run artifacts: saved provider outputs and metadata for each benchmark execution
 
@@ -33,7 +34,7 @@ This keeps cases realistic while still producing outputs that are comparable acr
 For evaluation, `agent-skill-bench` deliberately separates framework logic from domain logic:
 
 - the package provides generic checks such as non-empty output, required-heading presence/order, and declarative rule execution
-- each suite owns its own `evaluation_profiles` data in `suite.json`
+- each suite owns its own `evaluation_profiles` and `judge_profiles` data in `suite.json`
 
 That boundary matters. Domain-specific semantics such as UI/UX section names, keyword patterns, or anti-pattern phrases belong to the suite, not to the shared bench package.
 
@@ -95,6 +96,14 @@ Use `agent-skill-bench report` to aggregate one or more saved run artifacts into
 - top repeated failure-mode codes
 
 Runs can also attach a `judge_evaluation` block via `--judge`. The current built-in `mock` judge is deterministic and exists to validate the judge pipeline; it is not a substitute for a real model-based judge.
+
+When using a real judge such as `codex`, prefer suite-owned `judge_profiles`:
+
+- `default_judge_profile` sets the suite default
+- case files can override with `judge_profile`
+- CLI can override with `--judge-profile`
+
+This keeps judge dimensions, judge instructions, and pass guidance with the suite instead of hardcoding them in the shared bench package.
 
 ## Layout
 

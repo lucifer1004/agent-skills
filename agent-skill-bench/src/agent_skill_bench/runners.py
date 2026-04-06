@@ -22,6 +22,7 @@ class BenchmarkRunConfig:
     suite_filter: str | None = None
     case_ids: set[str] = field(default_factory=set)
     execution_profile: str | None = None
+    judge_profile: str | None = None
     skill_paths: list[Path] | None = None
     no_skills: bool = False
 
@@ -162,6 +163,7 @@ class BenchmarkRunner:
             skill_paths=selected_config.skill_paths,
             no_skills=selected_config.no_skills,
             execution_profile_name=selected_config.execution_profile,
+            judge_profile_name=selected_config.judge_profile,
         )
         return self.run_case(resolved)
 
@@ -182,6 +184,7 @@ class BenchmarkRunner:
                 skill_paths=selected_config.skill_paths,
                 no_skills=selected_config.no_skills,
                 execution_profile_name=selected_config.execution_profile,
+                judge_profile_name=selected_config.judge_profile,
             )
             if selected_config.suite_filter and resolved.suite_id != selected_config.suite_filter:
                 continue

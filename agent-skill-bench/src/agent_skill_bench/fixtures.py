@@ -34,6 +34,73 @@ class EvaluationRuleKind(StrEnum):
 
 
 @dataclass(slots=True)
+class BenchmarkJudgeDimension:
+    """One suite-owned judge dimension."""
+
+    name: str
+    description: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, object], *, field_name: str) -> "BenchmarkJudgeDimension":
+        """Build one judge dimension from JSON data."""
+
+        required = ("name", "description")
+        missing = [key for key in required if key not in data]
+        if missing:
+            raise ValueError(f"{field_name} is missing required keys: {', '.join(missing)}")
+        return cls(
+            name=str(data["name"]),
+            description=str(data["description"]),
+        )
+
+
+@dataclass(slots=True)
+class BenchmarkJudgeProfile:
+    """Suite-owned configuration for model-based judging."""
+
+    name: str
+    preamble: list[str] = field(default_factory=list)
+    shared_rules: list[str] = field(default_factory=list)
+    dimensions: list[BenchmarkJudgeDimension] = field(default_factory=list)
+    pass_guidance: str | None = None
+    include_rule_evaluation: bool = True
+
+    @classmethod
+    def from_dict(
+        cls,
+        name: str,
+        data: dict[str, object],
+        *,
+        field_name: str,
+    ) -> "BenchmarkJudgeProfile":
+        """Build one judge profile from JSON data."""
+
+        dimension_items = _list_of_dicts(data.get("dimensions", []), f"{field_name}.dimensions")
+        dimensions = [
+            BenchmarkJudgeDimension.from_dict(
+                item,
+                field_name=f"{field_name}.dimensions[{index}]",
+            )
+            for index, item in enumerate(dimension_items)
+        ]
+        if not dimensions:
+            raise ValueError(f"{field_name} must define at least one dimension.")
+
+        return cls(
+            name=name,
+            preamble=_string_list(data.get("preamble", []), f"{field_name}.preamble"),
+            shared_rules=_string_list(data.get("shared_rules", []), f"{field_name}.shared_rules"),
+            dimensions=dimensions,
+            pass_guidance=_optional_string(data.get("pass_guidance"), f"{field_name}.pass_guidance"),
+            include_rule_evaluation=_optional_bool(
+                data.get("include_rule_evaluation"),
+                f"{field_name}.include_rule_evaluation",
+                default=True,
+            ),
+        )
+
+
+@dataclass(slots=True)
 class BenchmarkExpectations:
     """Evaluation expectations for one benchmark case."""
 
@@ -234,6 +301,7 @@ class BenchmarkCase:
     cwd: str | None = None
     execution_profile: str | None = None
     evaluation_profile: str | None = None
+    judge_profile: str | None = None
     skill_paths: list[str] = field(default_factory=list)
     source_path: Path | None = None
 
@@ -271,6 +339,7 @@ class BenchmarkCase:
             cwd=cwd,
             execution_profile=_optional_string(data.get("execution_profile"), "execution_profile"),
             evaluation_profile=_optional_string(data.get("evaluation_profile"), "evaluation_profile"),
+            judge_profile=_optional_string(data.get("judge_profile"), "judge_profile"),
             skill_paths=_string_list(data.get("skill_paths", []), "skill_paths"),
             source_path=source_path,
         )
@@ -338,7 +407,9 @@ class BenchmarkSuite:
     default_skills: list[str] = field(default_factory=list)
     default_execution_profile: str = "isolated_prompt"
     default_evaluation_profile: str | None = None
+    default_judge_profile: str | None = None
     evaluation_profiles: dict[str, BenchmarkEvaluationProfile] = field(default_factory=dict)
+    judge_profiles: dict[str, BenchmarkJudgeProfile] = field(default_factory=dict)
     benchmark_prompt: BenchmarkPromptContract | None = None
     source_path: Path | None = None
 
@@ -366,8 +437,15 @@ class BenchmarkSuite:
                 data.get("default_evaluation_profile"),
                 "default_evaluation_profile",
             ),
+            default_judge_profile=_optional_string(
+                data.get("default_judge_profile"),
+                "default_judge_profile",
+            ),
             evaluation_profiles=_evaluation_profiles(
                 _optional_dict(data.get("evaluation_profiles"), "evaluation_profiles") or {}
+            ),
+            judge_profiles=_judge_profiles(
+                _optional_dict(data.get("judge_profiles"), "judge_profiles") or {}
             ),
             benchmark_prompt=BenchmarkPromptContract.from_dict(
                 _optional_dict(data.get("benchmark_prompt"), "benchmark_prompt")
@@ -397,6 +475,22 @@ class BenchmarkSuite:
             available = ", ".join(sorted(self.evaluation_profiles)) or "<none>"
             raise ValueError(
                 f"Unknown evaluation profile {name!r} for suite {self.suite_id!r}. Available: {available}"
+            ) from exc
+
+    def resolve_judge_profile(
+        self,
+        name: str | None,
+    ) -> BenchmarkJudgeProfile | None:
+        """Resolve a judge profile from suite-local definitions."""
+
+        if name is None:
+            return None
+        try:
+            return self.judge_profiles[name]
+        except KeyError as exc:
+            available = ", ".join(sorted(self.judge_profiles)) or "<none>"
+            raise ValueError(
+                f"Unknown judge profile {name!r} for suite {self.suite_id!r}. Available: {available}"
             ) from exc
 
 
@@ -444,6 +538,7 @@ class ResolvedBenchmarkCase:
     execution_profile: ExecutionProfile
     skill_paths: list[Path] = field(default_factory=list)
     evaluation_profile: str | None = None
+    judge_profile: str | None = None
 
     @property
     def id(self) -> str:
@@ -530,6 +625,7 @@ def resolve_case(
     skill_paths: list[Path] | None = None,
     no_skills: bool = False,
     execution_profile_name: str | None = None,
+    judge_profile_name: str | None = None,
 ) -> ResolvedBenchmarkCase:
     """Resolve suite defaults and case data into one executable case."""
 
@@ -538,6 +634,7 @@ def resolve_case(
     profile_name = execution_profile_name or case.execution_profile or suite.default_execution_profile
     execution_profile = get_execution_profile(profile_name)
     evaluation_profile = case.evaluation_profile or suite.default_evaluation_profile
+    resolved_judge_profile = judge_profile_name or case.judge_profile or suite.default_judge_profile
 
     resolved_skill_paths: list[Path]
     if no_skills:
@@ -556,6 +653,7 @@ def resolve_case(
         execution_profile=execution_profile,
         skill_paths=resolved_skill_paths,
         evaluation_profile=evaluation_profile,
+        judge_profile=resolved_judge_profile,
     )
 
 
@@ -623,6 +721,19 @@ def _evaluation_profiles(value: dict[str, object]) -> dict[str, BenchmarkEvaluat
             str(name),
             _dict_value(payload, f"evaluation_profiles.{name}"),
             field_name=f"evaluation_profiles.{name}",
+        )
+    return profiles
+
+
+def _judge_profiles(value: dict[str, object]) -> dict[str, BenchmarkJudgeProfile]:
+    """Parse suite-local judge profile definitions."""
+
+    profiles: dict[str, BenchmarkJudgeProfile] = {}
+    for name, payload in value.items():
+        profiles[str(name)] = BenchmarkJudgeProfile.from_dict(
+            str(name),
+            _dict_value(payload, f"judge_profiles.{name}"),
+            field_name=f"judge_profiles.{name}",
         )
     return profiles
 
