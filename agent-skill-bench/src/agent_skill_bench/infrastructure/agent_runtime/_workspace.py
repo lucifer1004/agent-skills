@@ -15,7 +15,7 @@ from agent_skill_bench.infrastructure.skills import (
     unique_skill_target,
 )
 
-from .base import AgentRunSpec
+from .base import AgentRunSpec, AgentRuntimeError
 
 
 @dataclass(slots=True)
@@ -64,7 +64,10 @@ def prepare_workspace(
 
         if spec.skill_paths:
             if workspace.cwd is None or skills_subdir is None:
-                raise RuntimeError("Cannot inject skills without a runtime workspace.")
+                raise AgentRuntimeError(
+                    "workspace_materialization_failure",
+                    "Cannot inject benchmark skills without a runtime workspace.",
+                )
             _install_skills(spec.skill_paths, workspace, skills_subdir)
 
         yield workspace
@@ -78,16 +81,25 @@ def _install_skills(
     """Materialize benchmark-provided skills into the runtime workspace."""
 
     if workspace.cwd is None:
-        raise RuntimeError("Cannot install skills without a runtime workspace.")
+        raise AgentRuntimeError(
+            "workspace_materialization_failure",
+            "Cannot install benchmark skills without a runtime workspace.",
+        )
 
     skills_root = workspace.cwd / skills_subdir
     skills_root.mkdir(parents=True, exist_ok=True)
 
     installed_skills: list[str] = []
     for index, source_path in enumerate(skill_paths, start=1):
-        source_dir = resolve_skill_directory(source_path)
-        target_dir = unique_skill_target(skills_root, skill_dir_name(source_dir, index))
-        shutil.copytree(source_dir, target_dir, dirs_exist_ok=True)
-        installed_skills.append(target_dir.name)
+        try:
+            source_dir = resolve_skill_directory(source_path)
+            target_dir = unique_skill_target(skills_root, skill_dir_name(source_dir, index))
+            shutil.copytree(source_dir, target_dir, dirs_exist_ok=True)
+            installed_skills.append(target_dir.name)
+        except Exception as exc:
+            raise AgentRuntimeError(
+                "workspace_materialization_failure",
+                f"Failed to materialize benchmark skill from {source_path}.",
+            ) from exc
 
     workspace.installed_skills.extend(installed_skills)

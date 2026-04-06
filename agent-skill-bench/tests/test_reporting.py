@@ -18,25 +18,38 @@ def test_summarize_run_artifacts_groups_pass_fail_counts(tmp_path: Path):
                     "suite_id": "uiux",
                     "candidate_runtime_name": "mock",
                     "mode": "Generate",
+                    "candidate_outcome": {"status": "succeeded", "code": None, "summary": None},
                     "rule_assessment": {"passed": True, "failure_modes": []},
                     "judge_assessment": {"judge_runtime_name": "mock", "passed": True},
+                    "judge_outcome": {"status": "succeeded", "code": None, "summary": None},
                 },
                 {
                     "case_id": "uiux.review.one",
                     "suite_id": "uiux",
                     "candidate_runtime_name": "claude",
                     "mode": "Review",
+                    "candidate_outcome": {
+                        "status": "failed",
+                        "code": "runtime_transport_failure",
+                        "summary": "transport failed",
+                    },
                     "rule_assessment": {
                         "passed": False,
                         "failure_modes": ["required_headings_present", "no_code_fences"],
                     },
                     "judge_assessment": {"judge_runtime_name": "mock", "passed": False},
+                    "judge_outcome": {
+                        "status": "failed",
+                        "code": "structured_output_mismatch",
+                        "summary": "schema mismatch",
+                    },
                 },
                 {
                     "case_id": "pixi.generate.one",
                     "suite_id": "pixi",
                     "candidate_runtime_name": "mock",
                     "mode": "Generate",
+                    "candidate_outcome": {"status": "succeeded", "code": None, "summary": None},
                     "rule_assessment": {"passed": False, "failure_modes": ["no_code_fences"]},
                 },
             ]
@@ -60,5 +73,19 @@ def test_summarize_run_artifacts_groups_pass_fail_counts(tmp_path: Path):
     assert summary["by_suite"][1]["passed"] == 1
     assert summary["by_judge_runtime"] == [
         {"key": "mock", "total": 2, "passed": 1, "failed": 1, "pass_rate": 0.5}
+    ]
+    assert summary["candidate_runtime_statuses"] == [
+        {"key": "failed", "count": 1},
+        {"key": "succeeded", "count": 2},
+    ]
+    assert summary["candidate_runtime_failures"] == [
+        {"key": "runtime_transport_failure", "count": 1}
+    ]
+    assert summary["judge_runtime_statuses"] == [
+        {"key": "failed", "count": 1},
+        {"key": "succeeded", "count": 1},
+    ]
+    assert summary["judge_runtime_failures"] == [
+        {"key": "structured_output_mismatch", "count": 1}
     ]
     assert summary["top_failure_modes"][0] == {"code": "no_code_fences", "count": 2}

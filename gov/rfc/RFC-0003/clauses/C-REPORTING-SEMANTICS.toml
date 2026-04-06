@@ -1,0 +1,18 @@
+#:schema ../../../schema/clause.schema.json
+
+[govctl]
+id = "C-REPORTING-SEMANTICS"
+title = "Reporting semantics"
+kind = "normative"
+status = "active"
+since = "0.1.0"
+
+[content]
+text = """
+Reporting implementations MUST derive pass, fail, grouping, and failure aggregations from the stable artifact boundary defined in [[RFC-0003:C-ARTIFACT-STABILITY]], [[RFC-0001]], and [[RFC-0002]].
+Reports MUST distinguish deterministic failure-mode codes from runtime outcome codes rather than combining them into one undifferentiated failure bucket.
+Reports SHOULD summarize candidate runtime outcomes, judge runtime outcomes, deterministic failure-mode codes, and judge pass/fail results as separate dimensions of analysis.
+Reports MAY ignore unknown auxiliary metadata and MUST NOT fail solely because an artifact contains additional runtime-specific metadata keys.
+When multiple artifacts are summarized together, the report output MUST remain comparable even if the source artifacts were produced by different runtime adapters.
+
+**Rationale:** current reporting is intentionally thin, but once runtime failures and reevaluation become first-class concepts the report layer needs a stable semantic contract that is independent of Codex CLI metadata, Claude SDK message layouts, or future adapter-specific evidence."""

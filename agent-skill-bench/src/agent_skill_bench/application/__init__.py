@@ -6,6 +6,9 @@ from .service import (
     BenchmarkService,
     build_candidate_run_spec,
     build_judge_run_spec,
+    reevaluate_run_artifact,
+    reevaluate_run_artifacts,
+    save_artifact_records,
     save_run_results,
 )
 
@@ -15,5 +18,8 @@ __all__ = [
     "build_candidate_run_spec",
     "build_judge_run_spec",
     "get_runtime",
+    "reevaluate_run_artifact",
+    "reevaluate_run_artifacts",
+    "save_artifact_records",
     "save_run_results",
 ]

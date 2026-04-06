@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from time import perf_counter
-from typing import Iterable
+from typing import Iterable, Mapping
 
 from agent_skill_bench.domain import (
     BenchmarkRun,
@@ -14,12 +14,19 @@ from agent_skill_bench.domain import (
     JudgeAssessment,
     JudgeTask,
     ResolvedCase,
+    RuntimeOutcome,
     SkillBindingStatus,
     default_judge_policy,
     evaluate_rule_assessment,
+    infer_candidate_outcome,
+    infer_judge_outcome,
     resolve_case,
 )
-from agent_skill_bench.infrastructure.agent_runtime import AgentRunSpec, AgentRuntime
+from agent_skill_bench.infrastructure.agent_runtime import (
+    AgentRunSpec,
+    AgentRuntime,
+    AgentRuntimeError,
+)
 
 
 @dataclass(slots=True)
@@ -35,14 +42,20 @@ class BenchmarkRunRequest:
     no_skills: bool = False
 
 
-def save_run_results(results: Iterable[BenchmarkRun], output_path: str | Path) -> Path:
-    """Persist normalized run results to a JSON file."""
+def save_artifact_records(records: Iterable[Mapping[str, object]], output_path: str | Path) -> Path:
+    """Persist normalized artifact records to a JSON file."""
 
     destination = Path(output_path)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    payload = [result.to_dict() for result in results]
+    payload = [dict(record) for record in records]
     destination.write_text(f"{json.dumps(payload, indent=2)}\n", encoding="utf-8")
     return destination
+
+
+def save_run_results(results: Iterable[BenchmarkRun], output_path: str | Path) -> Path:
+    """Persist normalized run results to a JSON file."""
+
+    return save_artifact_records((result.to_dict() for result in results), output_path)
 
 
 class BenchmarkService:
@@ -61,21 +74,54 @@ class BenchmarkService:
         """Run one resolved benchmark case."""
 
         started_at = perf_counter()
-        candidate_run = self.candidate_runtime.run(build_candidate_run_spec(case))
+        try:
+            candidate_run = self.candidate_runtime.run(build_candidate_run_spec(case))
+        except Exception as exc:
+            duration = perf_counter() - started_at
+            candidate_outcome = _runtime_outcome_from_exception(exc)
+            metadata = _runtime_failure_metadata(candidate_outcome)
+            return BenchmarkRun(
+                case_id=case.id,
+                suite_id=case.suite_id,
+                candidate_runtime_name=self.candidate_runtime.name,
+                mode=case.mode.value,
+                kind=case.kind.value,
+                execution_policy=case.execution_policy.name,
+                rule_policy=case.rule_policy.name if case.rule_policy is not None else None,
+                skill_paths=[str(path) for path in case.skill_paths],
+                output_text="",
+                duration_seconds=duration,
+                candidate_outcome=candidate_outcome,
+                metadata=metadata,
+                skill_binding=_summarize_skill_binding(case, metadata),
+                rule_assessment=None,
+                judge_assessment=None,
+                judge_outcome=None,
+                source_path=case.source_path,
+            )
+
         duration = perf_counter() - started_at
+        candidate_outcome = RuntimeOutcome.succeeded()
         metadata = dict(candidate_run.metadata)
 
+        # [[RFC-0001:C-ASSESSMENT-AND-ARTIFACTS]] requires deterministic assessment
+        # whenever candidate execution produced output text.
         rule_assessment = evaluate_rule_assessment(case, candidate_run.output_text)
         judge_assessment = None
+        judge_outcome = None
         if self.judge_runtime is not None:
-            judge_assessment = self.run_judge(
-                JudgeTask(
-                    case=case,
-                    candidate_output=candidate_run.output_text,
-                    rule_assessment=rule_assessment,
-                    judge_policy=case.judge_policy or default_judge_policy(),
+            try:
+                judge_assessment = self.run_judge(
+                    JudgeTask(
+                        case=case,
+                        candidate_output=candidate_run.output_text,
+                        rule_assessment=rule_assessment,
+                        judge_policy=case.judge_policy or default_judge_policy(),
+                    )
                 )
-            )
+                judge_outcome = RuntimeOutcome.succeeded()
+            except Exception as exc:
+                judge_outcome = _runtime_outcome_from_exception(exc)
 
         return BenchmarkRun(
             case_id=case.id,
@@ -88,10 +134,12 @@ class BenchmarkService:
             skill_paths=[str(path) for path in case.skill_paths],
             output_text=candidate_run.output_text,
             duration_seconds=duration,
+            candidate_outcome=candidate_outcome,
             metadata=metadata,
             skill_binding=_summarize_skill_binding(case, metadata),
             rule_assessment=rule_assessment,
             judge_assessment=judge_assessment,
+            judge_outcome=judge_outcome,
             source_path=case.source_path,
         )
 
@@ -172,6 +220,61 @@ class BenchmarkService:
             results.append(self.run_case(resolved))
 
         return results
+
+
+def reevaluate_run_artifacts(
+    records: Iterable[Mapping[str, object]],
+    *,
+    execution_policy_name: str | None = None,
+    rule_policy_name: str | None = None,
+) -> list[dict[str, object]]:
+    """Recompute deterministic assessment over saved artifacts only."""
+
+    reevaluated: list[dict[str, object]] = []
+    for record in records:
+        reevaluated.append(
+            reevaluate_run_artifact(
+                record,
+                execution_policy_name=execution_policy_name,
+                rule_policy_name=rule_policy_name,
+            )
+        )
+    return reevaluated
+
+
+def reevaluate_run_artifact(
+    record: Mapping[str, object],
+    *,
+    execution_policy_name: str | None = None,
+    rule_policy_name: str | None = None,
+) -> dict[str, object]:
+    """Recompute deterministic assessment for one saved run artifact."""
+
+    source_path = record.get("source_path")
+    if not isinstance(source_path, str) or not source_path:
+        raise ValueError("Artifact reevaluation requires a source_path.")
+
+    candidate_output = record.get("output_text")
+    if not isinstance(candidate_output, str):
+        raise ValueError("Artifact reevaluation requires saved candidate output text.")
+
+    resolved_case = resolve_case(
+        source_path,
+        no_skills=True,
+        execution_policy_name=execution_policy_name or _optional_string(record.get("execution_policy")),
+        rule_policy_name=rule_policy_name or _optional_string(record.get("rule_policy")),
+    )
+    updated = dict(record)
+    updated["candidate_outcome"] = infer_candidate_outcome(record).to_dict()
+    judge_outcome = infer_judge_outcome(record)
+    updated["judge_outcome"] = judge_outcome.to_dict() if judge_outcome is not None else None
+    updated["execution_policy"] = resolved_case.execution_policy.name
+    updated["rule_policy"] = (
+        resolved_case.rule_policy.name if resolved_case.rule_policy is not None else None
+    )
+    updated["rule_assessment"] = evaluate_rule_assessment(resolved_case, candidate_output).to_dict()
+    updated["source_path"] = str(resolved_case.source_path) if resolved_case.source_path else source_path
+    return updated
 
 
 def build_candidate_run_spec(case: ResolvedCase) -> AgentRunSpec:
@@ -323,6 +426,35 @@ def _judge_prompt(task: JudgeTask) -> str:
         ]
     )
     return "\n".join(sections)
+
+
+def _runtime_outcome_from_exception(exc: Exception) -> RuntimeOutcome:
+    """Normalize runtime exceptions into stable artifact outcomes."""
+
+    if isinstance(exc, AgentRuntimeError):
+        return RuntimeOutcome.failed(exc.code, exc.summary)
+    if isinstance(exc, TimeoutError):
+        return RuntimeOutcome.failed("runtime_timeout", str(exc))
+    return RuntimeOutcome.failed("runtime_transport_failure", str(exc) or exc.__class__.__name__)
+
+
+def _runtime_failure_metadata(outcome: RuntimeOutcome) -> dict[str, str]:
+    """Expose normalized runtime failure data without leaking adapter-only structure."""
+
+    metadata: dict[str, str] = {}
+    if outcome.code is not None:
+        metadata["runtime_failure_code"] = outcome.code
+    if outcome.summary is not None:
+        metadata["runtime_failure_summary"] = outcome.summary
+    return metadata
+
+
+def _optional_string(value: object) -> str | None:
+    """Return a string value when present and non-empty."""
+
+    if isinstance(value, str) and value:
+        return value
+    return None
 
 
 def _judge_schema(task: JudgeTask) -> dict[str, object]:

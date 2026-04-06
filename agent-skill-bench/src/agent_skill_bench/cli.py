@@ -14,6 +14,8 @@ from .application import (
     BenchmarkRunRequest,
     BenchmarkService,
     get_runtime,
+    reevaluate_run_artifacts,
+    save_artifact_records,
     save_run_results,
 )
 from .discovery import discover_case_files
@@ -75,6 +77,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "report":
         records = load_run_artifacts(args.run_artifact)
         print(json.dumps(summarize_run_artifacts(records), indent=2))
+        return 0
+
+    if args.command == "reevaluate":
+        records = load_run_artifacts(args.run_artifact)
+        reevaluated = reevaluate_run_artifacts(
+            records,
+            execution_policy_name=args.execution_policy,
+            rule_policy_name=args.rule_policy,
+        )
+        output_path = _resolve_reevaluate_output_path(args)
+        save_artifact_records(reevaluated, output_path)
+        print(f"Saved reevaluated benchmark results to {output_path}", file=sys.stderr)
+        print(json.dumps(reevaluated, indent=2))
         return 0
 
     parser.error(f"Unknown command: {args.command}")
@@ -171,6 +186,35 @@ def build_parser() -> argparse.ArgumentParser:
         help="Saved benchmark run JSON artifact(s) to summarize.",
     )
 
+    reevaluate = subparsers.add_parser(
+        "reevaluate",
+        help="Recompute deterministic assessment from saved benchmark run artifacts",
+    )
+    reevaluate.add_argument(
+        "run_artifact",
+        nargs="+",
+        type=Path,
+        help="Saved benchmark run JSON artifact(s) to reevaluate.",
+    )
+    reevaluate.add_argument(
+        "--execution-policy",
+        help="Optional execution policy override when resolving referenced cases.",
+    )
+    reevaluate.add_argument(
+        "--rule-policy",
+        help="Optional rule policy override when reevaluating referenced cases.",
+    )
+    reevaluate.add_argument(
+        "--results-dir",
+        type=Path,
+        help="Directory for auto-saved reevaluation JSON files. Defaults to .agent-skill-bench/runs/",
+    )
+    reevaluate.add_argument(
+        "--output",
+        type=Path,
+        help="Exact file path for the saved reevaluation JSON.",
+    )
+
     return parser
 
 
@@ -200,6 +244,17 @@ def _default_results_dir(root: Path | None) -> Path:
 
     base_dir = root if root is not None else Path.cwd()
     return base_dir / ".agent-skill-bench" / "runs"
+
+
+def _resolve_reevaluate_output_path(args: argparse.Namespace) -> Path:
+    """Resolve the destination path for persisted reevaluation results."""
+
+    if args.output is not None:
+        return args.output
+
+    results_dir = args.results_dir or _default_results_dir(None)
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
+    return results_dir / f"{timestamp}-reevaluated.json"
 
 
 def _configure_logging(level_name: str) -> None:

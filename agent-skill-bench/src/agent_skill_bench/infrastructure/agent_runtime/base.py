@@ -9,6 +9,15 @@ from typing import Literal, Protocol
 ScalarMetadata = str | int | float | bool
 
 
+class AgentRuntimeError(RuntimeError):
+    """Stable runtime error carrying a normalized failure taxonomy code."""
+
+    def __init__(self, code: str, summary: str) -> None:
+        super().__init__(summary)
+        self.code = code
+        self.summary = summary
+
+
 @dataclass(slots=True)
 class AgentRunSpec:
     """Standardized runtime request shared by candidate and judge runs."""

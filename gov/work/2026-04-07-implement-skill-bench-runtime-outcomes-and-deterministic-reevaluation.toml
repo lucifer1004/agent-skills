@@ -1,0 +1,63 @@
+#:schema ../schema/work.schema.json
+
+[govctl]
+id = "WI-2026-04-07-002"
+title = "implement skill-bench runtime outcomes and deterministic reevaluation"
+status = "done"
+created = "2026-04-07"
+started = "2026-04-07"
+completed = "2026-04-07"
+refs = [
+    "RFC-0002",
+    "RFC-0003",
+    "RFC-0001",
+]
+
+[content]
+description = "Implement normalized runtime outcome handling, artifact/report consumption semantics, and deterministic-only reevaluation CLI in agent-skill-bench so failed attempts and reevaluated runs become first-class governed behavior."
+notes = ["Deterministic reevaluation intentionally consumes saved candidate output only and never re-runs candidate or judge runtimes; reporting treats runtime outcomes as distinct from deterministic failure modes."]
+
+[[content.journal]]
+date = "2026-04-07"
+scope = "governance"
+content = "Finalized RFC-0003 to normative, advanced it to impl, and bumped RFC-0001 to v0.2.0 so runtime outcomes and reevaluation semantics are implementation-authorized."
+
+[[content.journal]]
+date = "2026-04-07"
+scope = "verification"
+content = "Validated with targeted runner/reporting/CLI tests, full agent-skill-bench pytest, compileall, govctl check, govctl render, and govctl verify."
+
+[[content.journal]]
+date = "2026-04-07"
+scope = "implementation"
+content = "Implemented normalized runtime outcomes, attempted-run artifact persistence, reporting updates, and deterministic-only reevaluation CLI in agent-skill-bench."
+
+[[content.journal]]
+date = "2026-04-07"
+scope = "governance"
+content = "Advanced RFC-0003 to test after implementation verification; work item remains open pending any later stable-phase decision."
+
+[[content.journal]]
+date = "2026-04-07"
+scope = "governance"
+content = "Advanced RFC-0003 to stable after prior implementation and verification. Compliance-checker and wi-reviewer were not available in this session, so closure relies on passing govctl/pytest/verify checks."
+
+[[content.acceptance_criteria]]
+text = "Provide a deterministic-only reevaluation CLI path that consumes saved run artifacts and emits new normalized artifacts without rerunning candidate runtimes."
+status = "done"
+category = "added"
+
+[[content.acceptance_criteria]]
+text = "Update reporting so runtime outcomes and deterministic failure modes are summarized as distinct analysis dimensions."
+status = "done"
+category = "added"
+
+[[content.acceptance_criteria]]
+text = "Persist normalized candidate and judge runtime outcomes for attempted runs, including failure cases, in agent-skill-bench artifacts."
+status = "done"
+category = "added"
+
+[[content.acceptance_criteria]]
+text = "govctl check passes"
+status = "done"
+category = "chore"

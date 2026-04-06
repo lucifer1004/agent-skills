@@ -9,7 +9,7 @@ import subprocess
 from tempfile import TemporaryDirectory
 
 from ._workspace import PreparedWorkspace, prepare_workspace
-from .base import AgentRunResult, AgentRunSpec
+from .base import AgentRunResult, AgentRunSpec, AgentRuntimeError
 from .schema import parse_and_validate_json_output
 
 
@@ -35,7 +35,10 @@ class CodexCLIAgentRuntime:
             skills_subdir=".agent-skill-bench/skills",
         ) as workspace:
             if workspace.cwd is None:
-                raise RuntimeError("Codex runtime requires a working directory.")
+                raise AgentRuntimeError(
+                    "workspace_materialization_failure",
+                    "Codex runtime requires a working directory.",
+                )
 
             instructions = _merge_instructions(spec.runtime_instructions, self.instructions)
             if instructions or workspace.installed_skills:
@@ -60,12 +63,14 @@ class CodexCLIAgentRuntime:
                         input=spec.prompt,
                     )
                 except subprocess.TimeoutExpired as exc:
-                    raise TimeoutError(
+                    raise AgentRuntimeError(
+                        "runtime_timeout",
                         f"Codex runtime timed out after {timeout_seconds} seconds."
                     ) from exc
 
                 if completed.returncode != 0:
-                    raise RuntimeError(
+                    raise AgentRuntimeError(
+                        "runtime_transport_failure",
                         f"Codex runtime failed with exit code {completed.returncode}. "
                         f"stdout:\n{completed.stdout.strip()}\n\nstderr:\n{completed.stderr.strip()}"
                     )
@@ -74,7 +79,13 @@ class CodexCLIAgentRuntime:
                     output_path.read_text(encoding="utf-8") if output_path.is_file() else ""
                 )
 
-            events = _parse_jsonl_events(completed.stdout)
+            try:
+                events = _parse_jsonl_events(completed.stdout)
+            except json.JSONDecodeError as exc:
+                raise AgentRuntimeError(
+                    "runtime_transport_failure",
+                    "Codex runtime returned an invalid JSON event stream.",
+                ) from exc
             metadata = dict(spec.metadata)
             metadata.update(
                 {
@@ -157,7 +168,10 @@ def _write_agents_file(workspace: PreparedWorkspace, instructions: str | None) -
     """Materialize a runtime-specific AGENTS.md for Codex."""
 
     if workspace.cwd is None:
-        raise RuntimeError("Cannot generate AGENTS.md without a working directory.")
+        raise AgentRuntimeError(
+            "workspace_materialization_failure",
+            "Cannot generate AGENTS.md without a working directory.",
+        )
 
     lines = [
         "# Benchmark Harness Instructions",

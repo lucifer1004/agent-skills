@@ -1,0 +1,19 @@
+#:schema ../../../schema/clause.schema.json
+
+[govctl]
+id = "C-ARTIFACT-STABILITY"
+title = "Artifact stability boundary"
+kind = "normative"
+status = "active"
+since = "0.1.0"
+
+[content]
+text = """
+The normalized run artifact contract defined by [[RFC-0001:C-ASSESSMENT-AND-ARTIFACTS]] MUST expose a stable top-level boundary for case identity, execution selection, runtime outcome, candidate output, assessment results, and source provenance.
+That stable boundary MUST let consumers determine which suite and case were evaluated, which candidate runtime was selected, which effective execution and assessment policies governed the run, what candidate output was produced, how skill binding was resolved, what deterministic assessment was produced, and what judge assessment was produced when judging completed.
+That stable boundary MUST also let consumers determine the candidate runtime outcome for every attempted run and the judge runtime outcome whenever judge execution was configured or attempted.
+The artifact contract MAY evolve its concrete field layout over time, but any such layout MUST preserve those stable semantics without requiring consumers to inspect auxiliary runtime metadata.
+Runtime-specific metadata MAY be included in a `metadata` field, but that field MUST be treated as auxiliary and unstable across runtime adapters and framework revisions.
+Consumers that need a long-lived contract, including reporting and reevaluation, MUST depend only on the stable boundary and MUST NOT require adapter-specific metadata keys.
+
+**Rationale:** the framework needs artifacts that remain comparable across suites, runtime adapters, and framework revisions without freezing every transport-specific metadata detail forever. A clear stable-versus-auxiliary boundary lets reporting and reevaluation stay robust while runtime implementations continue to expose adapter-specific evidence when helpful."""

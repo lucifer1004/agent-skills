@@ -6,6 +6,8 @@ from collections import Counter, defaultdict
 import json
 from pathlib import Path
 
+from .domain import infer_candidate_outcome, infer_judge_outcome
+
 
 def load_run_artifacts(paths: list[str | Path]) -> list[dict[str, object]]:
     """Load one or more saved run-artifact JSON files."""
@@ -34,9 +36,14 @@ def summarize_run_artifacts(records: list[dict[str, object]]) -> dict[str, objec
     by_mode: dict[str, dict[str, int]] = defaultdict(_empty_bucket)
     by_candidate_runtime: dict[str, dict[str, int]] = defaultdict(_empty_bucket)
     by_judge_runtime: dict[str, dict[str, int]] = defaultdict(_empty_bucket)
+    candidate_runtime_statuses = Counter()
+    candidate_runtime_failures = Counter()
+    judge_runtime_statuses = Counter()
+    judge_runtime_failures = Counter()
     failure_modes = Counter()
 
     for record in records:
+        candidate_outcome = infer_candidate_outcome(record)
         rule_assessment = record.get("rule_assessment")
         rule_assessment_passed = bool(
             isinstance(rule_assessment, dict) and rule_assessment.get("passed") is True
@@ -47,12 +54,21 @@ def summarize_run_artifacts(records: list[dict[str, object]]) -> dict[str, objec
         suite_id = str(record.get("suite_id", "<unknown>"))
         mode = str(record.get("mode", "<unknown>"))
         candidate_runtime_name = str(record.get("candidate_runtime_name", "<unknown>"))
+        candidate_runtime_statuses[candidate_outcome.status] += 1
+        if candidate_outcome.code is not None:
+            candidate_runtime_failures[candidate_outcome.code] += 1
 
         _update_bucket(by_suite[suite_id], rule_assessment_passed)
         _update_bucket(by_mode[mode], rule_assessment_passed)
         _update_bucket(by_candidate_runtime[candidate_runtime_name], rule_assessment_passed)
 
         judge_assessment = record.get("judge_assessment")
+        judge_outcome = infer_judge_outcome(record)
+        if judge_outcome is not None:
+            judge_runtime_statuses[judge_outcome.status] += 1
+            if judge_outcome.code is not None:
+                judge_runtime_failures[judge_outcome.code] += 1
+
         if isinstance(judge_assessment, dict):
             judged_runs += 1
             judge_passed = judge_assessment.get("passed") is True
@@ -78,6 +94,10 @@ def summarize_run_artifacts(records: list[dict[str, object]]) -> dict[str, objec
         "by_mode": _sorted_group_summary(by_mode),
         "by_candidate_runtime": _sorted_group_summary(by_candidate_runtime),
         "by_judge_runtime": _sorted_group_summary(by_judge_runtime),
+        "candidate_runtime_statuses": _sorted_counter_summary(candidate_runtime_statuses),
+        "candidate_runtime_failures": _sorted_counter_summary(candidate_runtime_failures),
+        "judge_runtime_statuses": _sorted_counter_summary(judge_runtime_statuses),
+        "judge_runtime_failures": _sorted_counter_summary(judge_runtime_failures),
         "top_failure_modes": [
             {"code": code, "count": count}
             for code, count in failure_modes.most_common()
@@ -125,3 +145,9 @@ def _pass_rate(passed: int, total: int) -> float | None:
     if total == 0:
         return None
     return passed / total
+
+
+def _sorted_counter_summary(counter: Counter[str]) -> list[dict[str, object]]:
+    """Convert a counter into a stable sorted list."""
+
+    return [{"key": key, "count": counter[key]} for key in sorted(counter)]

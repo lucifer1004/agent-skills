@@ -1,0 +1,20 @@
+#:schema ../../../schema/clause.schema.json
+
+[govctl]
+id = "C-ARTIFACT-REEVALUATION"
+title = "Artifact reevaluation"
+kind = "normative"
+status = "active"
+since = "0.1.0"
+
+[content]
+text = """
+The framework MUST provide a reevaluation path that consumes one or more saved normalized run artifacts without rerunning the original candidate runtime.
+Artifact reevaluation MUST use the saved candidate output from the artifact as the output under evaluation.
+Artifact reevaluation MUST resolve the referenced case and suite under the current framework and suite definitions before recomputing deterministic assessment.
+Artifact reevaluation MUST produce a new normalized artifact rather than mutating the source artifact in place.
+Artifact reevaluation MUST recompute deterministic assessment only.
+Artifact reevaluation MUST NOT run judge assessment.
+Artifact reevaluation MUST fail clearly when the source artifact lacks required stable fields or when the referenced case can no longer be resolved.
+
+**Rationale:** the framework already benefits from manually re-evaluating saved outputs when contract semantics change. Turning that practice into a formal capability makes regression analysis repeatable while preserving the distinction between original execution evidence and later reinterpretation under updated deterministic rules."""

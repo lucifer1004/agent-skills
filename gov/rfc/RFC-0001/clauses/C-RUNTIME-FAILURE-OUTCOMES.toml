@@ -1,0 +1,18 @@
+#:schema ../../../schema/clause.schema.json
+
+[govctl]
+id = "C-RUNTIME-FAILURE-OUTCOMES"
+title = "Runtime failure outcomes"
+kind = "normative"
+status = "active"
+since = "0.2.0"
+
+[content]
+text = """
+The framework MUST classify runtime failures with stable outcome codes rather than treating adapter-specific exception text as the contract.
+The stable outcome taxonomy MUST distinguish at least `runtime_timeout`, `structured_output_mismatch`, `runtime_transport_failure`, and `workspace_materialization_failure`.
+A failed candidate run MUST record the candidate runtime outcome code and a human-readable summary in the normalized artifact.
+A failed judge run MUST record the judge runtime outcome code and a human-readable summary in the normalized artifact without rewriting the candidate runtime outcome.
+The framework MAY define additional stable outcome codes, but it MUST preserve the meaning of the required codes across runtime adapters.
+
+**Rationale:** the current adapters already fail in materially different ways, including timeout exceptions, structured-output validation failures, runtime invocation failures, and workspace preparation failures. Stable outcome codes let reports and future automation compare these failures without coupling to Codex CLI stderr, Claude SDK exceptions, or Python exception class names."""

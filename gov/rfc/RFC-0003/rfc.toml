@@ -1,0 +1,28 @@
+#:schema ../../schema/rfc.schema.json
+
+[govctl]
+id = "RFC-0003"
+title = "Benchmark artifact reporting and reevaluation semantics"
+version = "0.1.0"
+status = "normative"
+phase = "stable"
+owners = ["@Gabriel Wu"]
+created = "2026-04-07"
+updated = "2026-04-07"
+
+[[sections]]
+title = "Summary"
+clauses = ["clauses/C-SUMMARY.toml"]
+
+[[sections]]
+title = "Specification"
+clauses = [
+    "clauses/C-ARTIFACT-STABILITY.toml",
+    "clauses/C-REPORTING-SEMANTICS.toml",
+    "clauses/C-ARTIFACT-REEVALUATION.toml",
+]
+
+[[changelog]]
+version = "0.1.0"
+date = "2026-04-07"
+notes = "Initial draft"

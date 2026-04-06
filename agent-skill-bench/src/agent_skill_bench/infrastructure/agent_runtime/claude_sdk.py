@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from ._workspace import prepare_workspace
-from .base import AgentRunResult, AgentRunSpec
+from .base import AgentRunResult, AgentRunSpec, AgentRuntimeError
 from .schema import parse_and_validate_json_output
 
 
@@ -34,7 +34,8 @@ class ClaudeSDKAgentRuntime:
                 return asyncio.run(coroutine)
             return asyncio.run(asyncio.wait_for(coroutine, timeout=timeout_seconds))
         except TimeoutError as exc:
-            raise RuntimeError(
+            raise AgentRuntimeError(
+                "runtime_timeout",
                 f"Claude runtime timed out for {spec.purpose} after {timeout_seconds} seconds."
             ) from exc
 
@@ -76,7 +77,8 @@ class ClaudeSDKAgentRuntime:
             except Exception as exc:
                 if stderr_lines:
                     stderr_text = "\n".join(stderr_lines)
-                    raise RuntimeError(
+                    raise AgentRuntimeError(
+                        "runtime_transport_failure",
                         f"Claude runtime failed during {spec.purpose}. CLI stderr:\n{stderr_text}"
                     ) from exc
                 raise
@@ -227,7 +229,8 @@ def _import_claude_agent_sdk() -> Any:
     try:
         import claude_agent_sdk  # type: ignore
     except ImportError as exc:  # pragma: no cover
-        raise RuntimeError(
+        raise AgentRuntimeError(
+            "runtime_transport_failure",
             "claude-agent-sdk is required for the Claude SDK runtime. Install it first."
         ) from exc
     return claude_agent_sdk

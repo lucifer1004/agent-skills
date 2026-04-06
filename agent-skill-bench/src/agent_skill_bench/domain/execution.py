@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal, Mapping
 
 from .catalog import (
     BenchmarkCase,
@@ -79,6 +80,51 @@ class SkillBindingStatus:
 
 
 @dataclass(slots=True)
+class RuntimeOutcome:
+    """Stable runtime outcome summary for candidate or judge execution."""
+
+    status: Literal["succeeded", "failed"]
+    code: str | None = None
+    summary: str | None = None
+
+    def to_dict(self) -> dict[str, object]:
+        """Convert the outcome into JSON-serializable data."""
+
+        return {
+            "status": self.status,
+            "code": self.code,
+            "summary": self.summary,
+        }
+
+    @classmethod
+    def succeeded(cls) -> RuntimeOutcome:
+        """Construct a successful runtime outcome."""
+
+        return cls(status="succeeded")
+
+    @classmethod
+    def failed(cls, code: str, summary: str) -> RuntimeOutcome:
+        """Construct a failed runtime outcome."""
+
+        return cls(status="failed", code=code, summary=summary)
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, object]) -> RuntimeOutcome:
+        """Parse one serialized runtime outcome payload."""
+
+        status = str(payload.get("status", "failed"))
+        if status not in {"succeeded", "failed"}:
+            raise ValueError(f"Unsupported runtime outcome status: {status!r}")
+        code = payload.get("code")
+        summary = payload.get("summary")
+        return cls(
+            status=status,
+            code=str(code) if isinstance(code, str) else None,
+            summary=str(summary) if isinstance(summary, str) else None,
+        )
+
+
+@dataclass(slots=True)
 class ResolvedCase:
     """Fully resolved benchmark case ready for execution."""
 
@@ -144,10 +190,12 @@ class BenchmarkRun:
     execution_policy: str
     output_text: str
     duration_seconds: float
+    candidate_outcome: RuntimeOutcome = field(default_factory=RuntimeOutcome.succeeded)
     metadata: dict[str, str | int | float | bool] = field(default_factory=dict)
     skill_binding: SkillBindingStatus = field(default_factory=SkillBindingStatus)
     rule_assessment: object | None = None
     judge_assessment: object | None = None
+    judge_outcome: RuntimeOutcome | None = None
     rule_policy: str | None = None
     skill_paths: list[str] = field(default_factory=list)
     source_path: Path | None = None
@@ -166,6 +214,7 @@ class BenchmarkRun:
             "skill_paths": list(self.skill_paths),
             "output_text": self.output_text,
             "duration_seconds": self.duration_seconds,
+            "candidate_outcome": self.candidate_outcome.to_dict(),
             "metadata": dict(self.metadata),
             "skill_binding": self.skill_binding.to_dict(),
             "rule_assessment": (
@@ -174,8 +223,31 @@ class BenchmarkRun:
             "judge_assessment": (
                 self.judge_assessment.to_dict() if self.judge_assessment is not None else None
             ),
+            "judge_outcome": self.judge_outcome.to_dict() if self.judge_outcome is not None else None,
             "source_path": str(self.source_path) if self.source_path else None,
         }
+
+
+def infer_candidate_outcome(record: Mapping[str, object]) -> RuntimeOutcome:
+    """Resolve the stable candidate runtime outcome from one artifact record."""
+
+    payload = record.get("candidate_outcome")
+    if isinstance(payload, Mapping):
+        return RuntimeOutcome.from_dict(payload)
+    return RuntimeOutcome.succeeded()
+
+
+def infer_judge_outcome(record: Mapping[str, object]) -> RuntimeOutcome | None:
+    """Resolve the stable judge runtime outcome from one artifact record when present."""
+
+    payload = record.get("judge_outcome")
+    if isinstance(payload, Mapping):
+        return RuntimeOutcome.from_dict(payload)
+
+    judge_assessment = record.get("judge_assessment")
+    if isinstance(judge_assessment, Mapping):
+        return RuntimeOutcome.succeeded()
+    return None
 
 
 def get_execution_policy(name: str) -> ExecutionPolicy:

@@ -3,12 +3,13 @@
 [govctl]
 id = "RFC-0001"
 title = "Benchmark execution and assessment model"
-version = "0.1.0"
+version = "0.2.0"
 status = "normative"
 phase = "stable"
 owners = ["@Gabriel Wu"]
 created = "2026-04-07"
 updated = "2026-04-07"
+signature = "b40e6cd1c22a8702d855d17bd4c4c44d9c62c233303a04f3370552dda7984e6e"
 
 [[sections]]
 title = "Summary"
@@ -21,6 +22,16 @@ clauses = [
     "clauses/C-SUITE-OWNED-SEMANTICS.toml",
     "clauses/C-RUNTIME-EXECUTION.toml",
     "clauses/C-ASSESSMENT-AND-ARTIFACTS.toml",
+    "clauses/C-RUNTIME-FAILURE-OUTCOMES.toml",
+]
+
+[[changelog]]
+version = "0.2.0"
+date = "2026-04-07"
+notes = "Add runtime failure outcomes and attempted-run artifact requirements"
+added = [
+    "add runtime failure outcome taxonomy for candidate and judge runs",
+    "require normalized artifacts for attempted runs and runtime failures",
 ]
 
 [[changelog]]

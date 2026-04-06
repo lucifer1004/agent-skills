@@ -1,0 +1,16 @@
+#:schema ../../../schema/clause.schema.json
+
+[govctl]
+id = "C-SUMMARY"
+title = "Summary"
+kind = "informative"
+status = "active"
+since = "0.1.0"
+
+[content]
+text = """
+This RFC defines the stable consumption semantics for normalized benchmark artifacts in `agent-skill-bench`.
+
+**Scope:** stable versus auxiliary artifact semantics, reporting expectations, and reevaluation of saved artifacts.
+
+**Rationale:** [[RFC-0001]] requires normalized artifacts, but reporting and reevaluation need a clearer contract so they can evolve without depending on adapter-specific metadata layouts or ad hoc scripts."""
