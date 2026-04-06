@@ -1,0 +1,19 @@
+#:schema ../../../schema/clause.schema.json
+
+[govctl]
+id = "C-DETERMINISTIC-CONTRACT-CHECKS"
+title = "Deterministic contract checks"
+kind = "normative"
+status = "active"
+since = "0.1.0"
+
+[content]
+text = """
+When a prompt contract declares required sections, deterministic assessment MUST check required-section presence, uniqueness, ordering, and non-emptiness against the contract semantics.
+Deterministic assessment MUST prefer the resolved section body at the contract heading level for section-targeted rules.
+If no section with the required title exists at the contract heading level, an implementation MAY fall back to a section with the same title at another heading level for suite-owned section-targeted rules.
+Such fallback MUST NOT satisfy required-section presence, ordering, uniqueness, or non-emptiness checks for the contract itself.
+Deterministic assessment MUST emit stable failure-mode codes for failed contract or rule checks so benchmark reports can aggregate repeated failures.
+The framework MAY enforce additional suite-owned deterministic rules beyond the generic contract checks, but those rules MUST be expressed as suite-owned policy data rather than implicit parser behavior.
+
+**Rationale:** suites need both shared baseline checks and suite-specific deterministic checks, but the resulting failure signals must remain stable enough for regression analysis. The current framework also preserves a limited title-based fallback for suite-owned rules without letting that fallback mask contract failures."""

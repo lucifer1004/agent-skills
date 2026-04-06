@@ -8,3 +8,4 @@ __pycache__/
 /agent-skill-pixi/
 /claude-skill-typst/
 /ui-ux-pro-max-skill/
+.govctl.lock

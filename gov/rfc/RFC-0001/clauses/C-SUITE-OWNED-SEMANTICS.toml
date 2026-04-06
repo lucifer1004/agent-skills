@@ -1,0 +1,16 @@
+#:schema ../../../schema/clause.schema.json
+
+[govctl]
+id = "C-SUITE-OWNED-SEMANTICS"
+title = "Suite-owned semantics"
+kind = "normative"
+status = "active"
+since = "0.1.0"
+
+[content]
+text = """
+The shared benchmark framework MUST interpret suite-owned contracts and policies generically rather than embedding benchmark-domain semantics in framework code.
+A suite MUST be able to define its own prompt contract, deterministic rules, and judge policy without requiring the framework to hardcode domain-specific section names, anti-pattern phrases, or rubric language.
+A runtime adapter MUST NOT become the authority for suite semantics.
+
+**Rationale:** the framework is shared across skill domains, while the meaning of benchmark expectations belongs to the suite that defines them."""

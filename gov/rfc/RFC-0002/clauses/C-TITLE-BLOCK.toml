@@ -1,0 +1,17 @@
+#:schema ../../../schema/clause.schema.json
+
+[govctl]
+id = "C-TITLE-BLOCK"
+title = "Optional title block semantics"
+kind = "normative"
+status = "active"
+since = "0.1.0"
+
+[content]
+text = """
+A prompt contract MAY allow an optional title block before the first required section.
+When a title block is allowed, it MUST consist of at most one level-1 heading and MAY include a thematic break immediately after that heading.
+A title block MUST NOT include introductory prose or any additional content before the first required section.
+When a title block is not allowed, the output MUST begin with the first required section except for leading whitespace.
+
+**Rationale:** benchmark contracts must support natural markdown document structure without allowing uncontrolled preambles that reduce comparability."""

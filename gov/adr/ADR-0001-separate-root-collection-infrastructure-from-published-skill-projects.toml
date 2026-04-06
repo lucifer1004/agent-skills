@@ -1,0 +1,80 @@
+#:schema ../schema/adr.schema.json
+
+[govctl]
+id = "ADR-0001"
+title = "Separate root collection infrastructure from published skill projects"
+status = "accepted"
+date = "2026-04-07"
+refs = ["ADR-0004"]
+
+[content]
+context = """
+This repository is a collection workspace for published and publishable agent skills rather than a single deployable application. It contains root-owned shared infrastructure such as `agent-skill-bench`, plus multiple skill project directories that must preserve their own package boundaries and publication paths.
+
+### Problem Statement
+
+The repository needs a stable boundary between collection-level infrastructure and skill-specific projects so maintenance work does not collapse all directories into one monolithic codebase. Without an explicit boundary, workspace tooling, benchmark harnesses, and skill content would drift across project lines and make future extraction or publication harder.
+
+### Constraints
+
+The root repository owns the shared Pixi workspace and collection-level task entrypoints. Published skill directories are intended to remain independently maintainable and may later live in standalone remotes or submodules. Existing repository instructions already require minimal cross-project edits and explicit classification of touched paths.
+
+### Options Considered
+
+We considered treating the repository as a single monorepo application, splitting every project into fully independent repositories immediately, or keeping a collection workspace with explicit root-vs-project ownership boundaries."""
+decision = """
+We will **treat the repository root as collection infrastructure and preserve published skill projects as separate bounded project directories** because:
+
+1. **The root owns shared coordination only:** the shared Pixi workspace, collection documentation, and cross-skill tooling belong at the repository root.
+2. **Published skills need stable extraction boundaries:** skill projects must remain independently maintainable and publishable without being rewritten around root-specific concerns.
+3. **Cross-project edits must stay exceptional:** explicit ownership boundaries reduce accidental refactors across unrelated skill projects.
+
+### Implementation Notes
+
+Root-owned tooling such as `agent-skill-bench` remains in the root repository. Published skill directories keep their own local instructions, docs, and package metadata. Cross-project changes should only happen when the task is explicitly about their shared boundary."""
+consequences = """
+### Positive
+
+- Shared infrastructure can evolve without erasing the independence of published skill projects.
+- Future extraction to separate remotes or submodules remains practical.
+- Repository-level instructions can enforce path classification and commit hygiene.
+
+### Negative
+
+- Some shared changes require touching both root tooling and a child project, which adds coordination overhead.
+- Contributors must understand repository boundaries before editing, which increases process friction.
+- Local workspace ergonomics can be slightly less convenient than folding everything into one codebase.
+
+### Neutral
+
+- The repository behaves like a collection workspace rather than a conventional application repository.
+- Root documentation and child-project documentation serve different audiences and must stay intentionally separate."""
+
+[[content.alternatives]]
+text = "Chosen: Collection workspace with explicit root-owned tooling and independent skill project boundaries"
+status = "accepted"
+pros = [
+    "Preserves future publication boundaries",
+    "Keeps shared infrastructure available in one workspace",
+]
+cons = ["Requires contributors to reason about ownership boundaries"]
+
+[[content.alternatives]]
+text = "Rejected: Treat the repository as one monolithic application"
+status = "rejected"
+pros = ["Simpler local navigation"]
+cons = [
+    "Blurs project ownership",
+    "Makes future skill extraction harder",
+]
+rejection_reason = "The repository is a collection workspace, not a single deployable system."
+
+[[content.alternatives]]
+text = "Rejected: Split every project into independent repos immediately"
+status = "rejected"
+pros = ["Maximizes project isolation"]
+cons = [
+    "Loses shared local workspace ergonomics",
+    "Raises migration overhead before boundaries stabilize",
+]
+rejection_reason = "The current workflow benefits from a shared maintenance workspace while project boundaries mature."

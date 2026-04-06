@@ -1,0 +1,18 @@
+#:schema ../../../schema/clause.schema.json
+
+[govctl]
+id = "C-RUNTIME-EXECUTION"
+title = "Runtime execution model"
+kind = "normative"
+status = "active"
+since = "0.1.0"
+
+[content]
+text = """
+Candidate execution MUST compile a resolved case into a runtime request and execute it through a shared agent-runtime abstraction.
+Judge execution MUST compile a judge task into the same shared agent-runtime abstraction rather than inventing a separate vendor-specific execution model.
+A runtime adapter MUST return the candidate or judge output text.
+When a runtime request includes structured-output constraints, the runtime adapter MUST either return parsed structured output that satisfies those constraints or fail the run.
+The runtime abstraction MUST be capable of carrying execution intent such as purpose, working directory controls, skill bindings, timeout controls, and optional structured-output constraints.
+
+**Rationale:** candidate and judge runs differ in purpose, but they share the same class of runtime behavior and should be modeled uniformly. Structured judge execution is not optional once the request asks for validated structured output."""

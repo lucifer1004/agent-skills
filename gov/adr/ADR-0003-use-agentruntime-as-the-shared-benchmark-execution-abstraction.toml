@@ -1,0 +1,83 @@
+#:schema ../schema/adr.schema.json
+
+[govctl]
+id = "ADR-0003"
+title = "Use AgentRuntime as the shared benchmark execution abstraction"
+status = "accepted"
+date = "2026-04-07"
+refs = [
+    "ADR-0004",
+    "RFC-0001",
+]
+
+[content]
+context = """
+Both candidate runs and judge runs execute agentic workflows with shared runtime concerns: prompt delivery, workspace selection, skill injection, timeout handling, and optional structured output. Codex CLI and Claude Agent SDK expose different transport details, but they are both runtime adapters for the same benchmark use cases.
+
+### Problem Statement
+
+The framework needs a single execution abstraction that candidate and judge flows can both use without elevating runtime-specific transports into application-level concepts. If Codex and Claude are modeled as separate provider or judge types, the framework couples use-case logic to vendor integration details.
+
+### Constraints
+
+Benchmark runs need to support multiple runtimes, optional structured output, isolated workspaces, and explicit skill binding. Candidate execution and judge execution differ in purpose, but not in the core runtime capabilities they require.
+
+### Options Considered
+
+We considered separate provider and judge implementations per vendor, a low-level model-invocation abstraction, and a shared agent-runtime abstraction used by both candidate and judge flows."""
+decision = """
+We will **use `AgentRuntime` as the shared execution abstraction for both candidate and judge runs** because:
+
+1. **Candidate and judge runs share runtime semantics:** both compile a task into a run spec and execute it against an agent-capable runtime.
+2. **Vendor transports should stay infrastructural:** Codex CLI and Claude Agent SDK differ in how they run, not in what the application layer is trying to accomplish.
+3. **A shared abstraction reduces duplication:** prompt handling, workspace controls, skill injection, timeouts, and structured-output hooks can be normalized once.
+
+### Implementation Notes
+
+The application layer compiles benchmark cases and judge tasks into `AgentRunSpec`. Infrastructure adapters such as Codex CLI and Claude SDK implement `AgentRuntime`. Runtime-specific parsing or session plumbing remains in infrastructure, while use-case orchestration remains in the application layer."""
+consequences = """
+### Positive
+
+- Candidate and judge flows share one execution contract.
+- Vendor-specific details stay in infrastructure adapters instead of leaking into application code.
+- Adding another runtime adapter becomes primarily an infrastructure task.
+
+### Negative
+
+- The runtime abstraction must stay carefully scoped to avoid becoming a vague catch-all.
+- Some transport-specific capabilities may need explicit normalization decisions.
+- Debugging can require looking through both application and adapter layers.
+
+### Neutral
+
+- Runtime adapters are responsible for translation into external tools or SDKs.
+- The application layer focuses on compiling benchmark intent into runtime specs."""
+
+[[content.alternatives]]
+text = "Rejected: Separate provider and judge classes per vendor"
+status = "rejected"
+pros = ["Simple to sketch initially"]
+cons = [
+    "Duplicates execution logic",
+    "Couples application concepts to vendor names",
+]
+rejection_reason = "Vendor transports should not define the application model."
+
+[[content.alternatives]]
+text = "Rejected: Treat agent runtimes as plain model invocation backends"
+status = "rejected"
+pros = ["Very small abstraction surface"]
+cons = [
+    "Loses workspace and tool semantics",
+    "Misrepresents agent runtimes as plain text completion APIs",
+]
+rejection_reason = "Benchmark execution depends on richer agent-runtime behavior than prompt-in/prompt-out invocation."
+
+[[content.alternatives]]
+text = "Chosen: Shared `AgentRuntime` abstraction for candidate and judge execution"
+status = "accepted"
+pros = [
+    "Unifies execution semantics",
+    "Keeps vendor adapters infrastructural",
+]
+cons = ["Requires careful abstraction boundaries"]

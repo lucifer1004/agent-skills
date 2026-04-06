@@ -1,0 +1,17 @@
+#:schema ../../../schema/clause.schema.json
+
+[govctl]
+id = "C-SUITE-AND-CASE-RESOLUTION"
+title = "Suite and case resolution"
+kind = "normative"
+status = "active"
+since = "0.1.0"
+
+[content]
+text = """
+A benchmark execution MUST resolve one suite definition and one case definition into a single resolved case before invoking any runtime.
+The suite MUST define the benchmark-wide defaults that the framework needs for execution and assessment, including execution defaults and any prompt or assessment contracts that apply to the suite.
+A case MAY override suite defaults where the framework explicitly permits overrides.
+The resolved case MUST preserve the selected suite ID, case ID, mode, execution kind, source path, and the effective policies that will govern execution and assessment.
+
+**Rationale:** benchmark runs need a reproducible pre-execution representation so runtime behavior and later assessment can be explained against a single effective configuration."""

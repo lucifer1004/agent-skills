@@ -1,0 +1,17 @@
+#:schema ../../../schema/clause.schema.json
+
+[govctl]
+id = "C-ASSESSMENT-AND-ARTIFACTS"
+title = "Assessment and run artifacts"
+kind = "normative"
+status = "active"
+since = "0.1.0"
+
+[content]
+text = """
+Each benchmark run MUST produce a deterministic rule assessment, even when no judge runtime is configured.
+A benchmark run MAY produce a judge assessment when a judge runtime is configured.
+A normalized run artifact MUST include enough information to identify the executed case, the candidate runtime used, the candidate output, deterministic assessment results, and any judge assessment that was produced.
+When deterministic checks fail, the artifact MUST preserve stable failure-mode codes derived from the failed checks.
+
+**Rationale:** regression tracking depends on a persistent, comparable artifact that records both the generated output and the framework's interpretation of the run."""

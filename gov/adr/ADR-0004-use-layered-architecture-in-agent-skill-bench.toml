@@ -1,0 +1,78 @@
+#:schema ../schema/adr.schema.json
+
+[govctl]
+id = "ADR-0004"
+title = "Use layered architecture in agent-skill-bench"
+status = "accepted"
+date = "2026-04-07"
+refs = [
+    "ADR-0002",
+    "ADR-0003",
+    "RFC-0001",
+]
+
+[content]
+context = """
+`agent-skill-bench` has to coordinate benchmark catalog data, run orchestration, and runtime integration without collapsing these responsibilities into one module. The framework needs a structure that keeps domain concepts stable while allowing runtime adapters and CLI integration to evolve.
+
+### Problem Statement
+
+The benchmark package needs an internal architecture that separates benchmark concepts from orchestration and infrastructure details. Without an explicit layering decision, runtime integrations, JSON loading, CLI concerns, and assessment logic would couple together and make the package harder to extend or reason about.
+
+### Constraints
+
+The package must load suite and case definitions, compile benchmark runs, normalize results, integrate multiple runtimes, and expose a CLI. The same package also needs to support future changes in runtimes and benchmark suites without forcing repeated rewrites through unrelated modules.
+
+### Options Considered
+
+We considered keeping a flat module layout, organizing around vendor integrations first, or adopting a layered architecture with domain, application, and infrastructure responsibilities."""
+decision = """
+We will **use layered architecture in `agent-skill-bench`, with distinct domain, application, and infrastructure responsibilities** because:
+
+1. **Domain concepts need to stay stable:** benchmark catalog, execution, and assessment concepts should not depend on vendor adapters.
+2. **Use-case orchestration is distinct from persistence and transport:** run compilation and result assembly belong in an application service layer.
+3. **Infrastructure should be replaceable:** runtimes, CLI shims, and workspace materialization logic should be swappable without redefining the domain model.
+
+### Implementation Notes
+
+The `domain/` layer owns benchmark entities, catalog loading, and deterministic assessment semantics. The `application/` layer owns run orchestration and task compilation. The `infrastructure/` layer owns agent runtime adapters, workspace helpers, and schema-parsing utilities. The CLI composes these layers rather than embedding domain logic directly."""
+consequences = """
+### Positive
+
+- Core benchmark concepts remain readable and testable without runtime dependencies.
+- Runtime integrations can evolve without destabilizing the domain model.
+- Application orchestration becomes a clear place for benchmark run assembly.
+
+### Negative
+
+- The package gains more modules and indirection than a flat script-style layout.
+- Contributors need to understand layer boundaries before making changes.
+- Some changes will touch multiple layers when cross-cutting behavior evolves.
+
+### Neutral
+
+- The CLI becomes a composition boundary rather than the owner of benchmark logic.
+- Some utilities move out of legacy locations as the layer boundaries become explicit."""
+
+[[content.alternatives]]
+text = "Chosen: Layered architecture with domain, application, and infrastructure layers"
+status = "accepted"
+pros = [
+    "Keeps responsibilities explicit",
+    "Supports runtime evolution",
+]
+cons = ["Introduces structural overhead"]
+
+[[content.alternatives]]
+text = "Rejected: Flat module layout with mixed responsibilities"
+status = "rejected"
+pros = ["Lower initial ceremony"]
+cons = ["Encourages coupling between CLI, runtimes, and domain logic"]
+rejection_reason = "The package needs stronger long-term boundaries than a flat layout can provide."
+
+[[content.alternatives]]
+text = "Rejected: Organize around vendor integrations first"
+status = "rejected"
+pros = ["Makes vendor-specific code easy to find"]
+cons = ["Lets infrastructure concerns dominate the core architecture"]
+rejection_reason = "The package's primary model is benchmark execution, not vendor integration."

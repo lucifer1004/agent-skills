@@ -1,0 +1,29 @@
+#:schema ../../schema/rfc.schema.json
+
+[govctl]
+id = "RFC-0001"
+title = "Benchmark execution and assessment model"
+version = "0.1.0"
+status = "normative"
+phase = "stable"
+owners = ["@Gabriel Wu"]
+created = "2026-04-07"
+updated = "2026-04-07"
+
+[[sections]]
+title = "Summary"
+clauses = ["clauses/C-SUMMARY.toml"]
+
+[[sections]]
+title = "Specification"
+clauses = [
+    "clauses/C-SUITE-AND-CASE-RESOLUTION.toml",
+    "clauses/C-SUITE-OWNED-SEMANTICS.toml",
+    "clauses/C-RUNTIME-EXECUTION.toml",
+    "clauses/C-ASSESSMENT-AND-ARTIFACTS.toml",
+]
+
+[[changelog]]
+version = "0.1.0"
+date = "2026-04-07"
+notes = "Initial draft"

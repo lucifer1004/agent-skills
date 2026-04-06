@@ -1,0 +1,16 @@
+#:schema ../../../schema/clause.schema.json
+
+[govctl]
+id = "C-SUMMARY"
+title = "Summary"
+kind = "informative"
+status = "active"
+since = "0.1.0"
+
+[content]
+text = """
+This RFC defines the semantic meaning of benchmark output contracts used by `agent-skill-bench`.
+
+**Scope:** required section ordering, heading-level interpretation, optional title blocks, section-body boundaries, and deterministic contract checks.
+
+**Rationale:** benchmark suites need outputs that are comparable across runs without forcing every suite to invent its own parser semantics."""

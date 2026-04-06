@@ -1,0 +1,28 @@
+#:schema ../../schema/rfc.schema.json
+
+[govctl]
+id = "RFC-0002"
+title = "Benchmark output contract semantics"
+version = "0.1.0"
+status = "normative"
+phase = "stable"
+owners = ["@Gabriel Wu"]
+created = "2026-04-07"
+updated = "2026-04-07"
+
+[[sections]]
+title = "Summary"
+clauses = ["clauses/C-SUMMARY.toml"]
+
+[[sections]]
+title = "Specification"
+clauses = [
+    "clauses/C-REQUIRED-SECTIONS.toml",
+    "clauses/C-TITLE-BLOCK.toml",
+    "clauses/C-DETERMINISTIC-CONTRACT-CHECKS.toml",
+]
+
+[[changelog]]
+version = "0.1.0"
+date = "2026-04-07"
+notes = "Initial draft"

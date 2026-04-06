@@ -1,0 +1,16 @@
+#:schema ../../../schema/clause.schema.json
+
+[govctl]
+id = "C-SUMMARY"
+title = "Summary"
+kind = "informative"
+status = "active"
+since = "0.1.0"
+
+[content]
+text = """
+This RFC defines the execution and assessment model for `agent-skill-bench`.
+
+**Scope:** benchmark suites and cases, case resolution, runtime execution, deterministic assessment, optional judge assessment, and normalized run artifacts.
+
+**Rationale:** the framework needs a stable behavioral model that is independent of any single benchmark suite or runtime adapter and can be verified consistently across implementations."""

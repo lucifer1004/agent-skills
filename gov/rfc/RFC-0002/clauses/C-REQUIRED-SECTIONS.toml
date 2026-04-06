@@ -1,0 +1,17 @@
+#:schema ../../../schema/clause.schema.json
+
+[govctl]
+id = "C-REQUIRED-SECTIONS"
+title = "Required section semantics"
+kind = "normative"
+status = "active"
+since = "0.1.0"
+
+[content]
+text = """
+A prompt contract MAY declare an ordered list of required section titles for a benchmark mode.
+When required sections are declared, the candidate output MUST contain each required section exactly once and in the declared order at the contract's required heading level.
+The contract MUST define the heading level at which required sections are interpreted.
+Nested headings below the required heading level MUST remain part of the parent section body until the next heading at the same or higher level is encountered.
+
+**Rationale:** benchmark comparability depends on stable section boundaries, especially when candidates add internal subheadings inside an otherwise valid section."""

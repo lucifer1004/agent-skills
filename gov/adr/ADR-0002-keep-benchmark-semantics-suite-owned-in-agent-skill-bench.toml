@@ -1,0 +1,83 @@
+#:schema ../schema/adr.schema.json
+
+[govctl]
+id = "ADR-0002"
+title = "Keep benchmark semantics suite-owned in agent-skill-bench"
+status = "accepted"
+date = "2026-04-07"
+refs = [
+    "RFC-0001",
+    "RFC-0002",
+]
+
+[content]
+context = """
+`agent-skill-bench` provides reusable benchmarking infrastructure for multiple skill projects. The framework must evaluate suite-owned benchmark cases without embedding UI/UX-specific or vendor-specific semantics in the shared package.
+
+### Problem Statement
+
+The benchmark package needs a clear boundary between reusable framework behavior and suite-specific semantics. If output contracts, rule meanings, or judge semantics are hardcoded in shared code, adding new domains or benchmark suites becomes brittle and encourages framework drift.
+
+### Constraints
+
+Suites define their own prompts, rule policies, judge policies, and expectations. The shared bench package must remain usable across different skill domains and different runtimes. Benchmark outputs still need deterministic and judge-driven assessment, but the meaning of those assessments belongs to each suite.
+
+### Options Considered
+
+We considered embedding domain-specific semantics in the bench package, pushing all behavior into runtimes, or keeping semantics in suite data while the bench package interprets generic contracts and policies."""
+decision = """
+We will **keep benchmark semantics suite-owned and keep the shared bench package generic** because:
+
+1. **Suites understand domain meaning:** section names, must-cover expectations, anti-patterns, and judge dimensions vary by skill domain.
+2. **The framework should interpret, not invent, semantics:** the bench package can execute generic contract checks and policy-driven rules without hardcoding UI/UX or other domain-specific logic.
+3. **New suites should extend data, not fork the framework:** adding another benchmark domain should primarily involve new suite manifests and cases.
+
+### Implementation Notes
+
+Suite manifests own `prompt_contract`, `rule_policies`, and `judge_policies`. Shared code provides generic assessment mechanics, run orchestration, and artifact normalization. Domain-specific phrases or section semantics should be expressed in suite data rather than framework conditionals."""
+consequences = """
+### Positive
+
+- The bench package stays reusable across multiple skill domains.
+- New benchmark domains can be added mostly through suite data.
+- Domain-specific semantics remain close to the suites that own them.
+
+### Negative
+
+- Suite manifests become more expressive and require stronger validation discipline.
+- Some domain behavior that feels obvious still has to be encoded as suite data.
+- Shared tests need to distinguish framework guarantees from suite-specific expectations.
+
+### Neutral
+
+- The framework primarily enforces contracts and executes policy data instead of embedding product-domain meaning.
+- Benchmark evolution shifts toward schema design and suite authoring quality."""
+
+[[content.alternatives]]
+text = "Chosen: Suite-owned semantics interpreted by a generic benchmark framework"
+status = "accepted"
+pros = [
+    "Keeps domain meaning close to suite authors",
+    "Avoids framework hardcoding",
+]
+cons = ["Requires richer suite manifests"]
+
+[[content.alternatives]]
+text = "Rejected: Hardcode benchmark-domain semantics in the shared package"
+status = "rejected"
+pros = ["Fewer manifest concepts initially"]
+cons = [
+    "Couples framework to one domain",
+    "Makes extension to other skill types brittle",
+]
+rejection_reason = "Shared infrastructure should not own suite-specific meaning."
+
+[[content.alternatives]]
+text = "Rejected: Push all semantics into runtime adapters"
+status = "rejected"
+pros = ["Thinner framework core"]
+cons = [
+    "Conflates execution with domain interpretation",
+    "Duplicates policy logic across runtimes",
+]
+rejection_reason = "Execution adapters should not become the place where benchmark semantics live."
