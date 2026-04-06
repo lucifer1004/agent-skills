@@ -9,7 +9,8 @@ It is intended to live in the root `agent-skills` collection repository and prov
 - scoring and regression comparison
 - benchmark discovery across skill projects
 
-This initial scaffold sets up the package as a Pixi-built Python project so the framework can evolve behind a stable package boundary.
+This package is developed from the root `agent-skills` Pixi workspace while preserving a normal Python package boundary inside `agent-skill-bench/`.
+The root workspace owns the environment and tasks; this subtree keeps the package metadata and package-level `pixi-build` manifest.
 
 ## Model
 
@@ -42,6 +43,15 @@ By default, result files are written to:
 
 Use `--output` to choose an exact file path or `--results-dir` to override the default artifact directory.
 
+## Development
+
+The collection-level Pixi workspace lives at [pixi.toml](/Users/zihuaw/Workspace/agent-skills/pixi.toml) in the repository root.
+
+Typical commands:
+
+- `pixi run test`
+- `pixi run bench -- --help`
+
 Benchmark runs can also inject explicit skills instead of inheriting whatever is installed in the user's Claude environment:
 
 - add `skill_paths` to a case JSON
@@ -61,4 +71,5 @@ This is intentional. "Injected" and "registered in the Claude session" are not t
 
 - `src/agent_skill_bench/` contains the package code
 - `tests/` contains package-level tests
-- `pixi.toml` defines the Pixi workspace and package-build configuration
+- `pyproject.toml` defines the Python package metadata
+- `pixi.toml` defines the package-level `pixi-build` metadata used by the root workspace
