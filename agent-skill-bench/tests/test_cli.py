@@ -164,3 +164,36 @@ def test_cli_run_respects_explicit_output_and_skill_override(tmp_path: Path, cap
     assert persisted[0]["case_id"] == "uiux.generate.output"
     assert persisted[0]["skill_paths"] == [str(override_skill.resolve())]
     assert persisted[0]["skill_binding"]["requested_skills"] == ["manual-skill"]
+
+
+def test_cli_report_summarizes_saved_run_artifacts(tmp_path: Path, capsys):
+    artifact = tmp_path / "runs.json"
+    artifact.write_text(
+        json.dumps(
+            [
+                {
+                    "case_id": "uiux.generate.one",
+                    "suite_id": "uiux",
+                    "provider_name": "mock",
+                    "mode": "Generate",
+                    "evaluation": {"passed": True, "failure_modes": []},
+                },
+                {
+                    "case_id": "uiux.review.one",
+                    "suite_id": "uiux",
+                    "provider_name": "claude",
+                    "mode": "Review",
+                    "evaluation": {"passed": False, "failure_modes": ["no_code_fences"]},
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["report", str(artifact)])
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["total_runs"] == 2
+    assert output["passed_runs"] == 1
+    assert output["top_failure_modes"] == [{"code": "no_code_fences", "count": 1}]

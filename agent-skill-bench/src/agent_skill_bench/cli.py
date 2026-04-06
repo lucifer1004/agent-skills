@@ -12,6 +12,7 @@ from typing import Sequence
 
 from .discovery import discover_case_files
 from .providers import get_provider
+from .reporting import load_run_artifacts, summarize_run_artifacts
 from .runners import BenchmarkRunConfig, BenchmarkRunner, save_run_results
 
 LOG_LEVELS = ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG")
@@ -53,6 +54,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         save_run_results(results, output_path)
         print(f"Saved benchmark results to {output_path}", file=sys.stderr)
         print(json.dumps([result.to_dict() for result in results], indent=2))
+        return 0
+
+    if args.command == "report":
+        records = load_run_artifacts(args.run_artifact)
+        print(json.dumps(summarize_run_artifacts(records), indent=2))
         return 0
 
     parser.error(f"Unknown command: {args.command}")
@@ -129,6 +135,14 @@ def build_parser() -> argparse.ArgumentParser:
         action="append",
         default=[],
         help="Optional case id filter. Can be passed multiple times.",
+    )
+
+    report = subparsers.add_parser("report", help="Summarize saved benchmark run artifacts")
+    report.add_argument(
+        "run_artifact",
+        nargs="+",
+        type=Path,
+        help="Saved benchmark run JSON artifact(s) to summarize.",
     )
 
     return parser

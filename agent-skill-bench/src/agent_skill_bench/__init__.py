@@ -21,6 +21,7 @@ from .fixtures import (
     load_suite_for_case,
     resolve_case,
 )
+from .reporting import load_run_artifacts, summarize_run_artifacts
 from .runners import BenchmarkRunConfig, BenchmarkRunResult, BenchmarkRunner, SkillBindingSummary
 
 __all__ = [
@@ -47,9 +48,11 @@ __all__ = [
     "EvaluationRuleKind",
     "get_execution_profile",
     "load_case",
+    "load_run_artifacts",
     "load_suite",
     "load_suite_for_case",
     "resolve_case",
+    "summarize_run_artifacts",
 ]
 
 __version__ = "0.1.0"

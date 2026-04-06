@@ -59,6 +59,7 @@ Typical commands:
 
 - `pixi run test`
 - `pixi run bench -- --help`
+- `pixi run bench -- report path/to/run.json`
 
 Benchmark runs can also inject explicit skills instead of inheriting whatever is installed in the user's Claude environment:
 
@@ -80,6 +81,12 @@ Saved run artifacts also include an `evaluation` block. In the current implement
 - `contract_checks` cover generic output-contract requirements
 - `rule_checks` execute suite-owned declarative rules from the selected evaluation profile
 - `failure_modes` provides a normalized list of failed check codes for regression tracking
+
+Use `agent-skill-bench report` to aggregate one or more saved run artifacts into a single summary with:
+
+- overall pass rate
+- pass/fail counts by suite, mode, and provider
+- top repeated failure-mode codes
 
 ## Layout
 
