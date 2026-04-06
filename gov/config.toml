@@ -14,17 +14,19 @@ docs_output = "docs"
 [schema]
 version = 2
 
+[verification]
+enabled = true
+default_guards = [
+  "GUARD-GOVCTL-CHECK-PASSES",
+  "GUARD-AGENT-SKILL-BENCH-TESTS",
+]
+
 # [work_item]
 # ID strategy for work items (default: sequential)
 # - sequential: WI-YYYY-MM-DD-NNN (solo projects)
 # - author-hash: WI-YYYY-MM-DD-{hash}-NNN (multi-person teams, uses git email)
 # - random: WI-YYYY-MM-DD-{rand} (simple uniqueness)
 # id_strategy = "author-hash"
-
-# [verification]
-# Enable project-level default verification guards.
-# enabled = true
-# default_guards = ["GUARD-GOVCTL-CHECK", "GUARD-CARGO-TEST"]
 
 # [concurrency]
 # Maximum seconds to wait for exclusive lock before failing (default: 30)

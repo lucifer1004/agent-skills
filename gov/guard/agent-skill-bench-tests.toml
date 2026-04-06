@@ -1,0 +1,14 @@
+#:schema ../schema/guard.schema.json
+
+[govctl]
+id = "GUARD-AGENT-SKILL-BENCH-TESTS"
+title = "agent-skill-bench tests"
+refs = [
+    "RFC-0001",
+    "RFC-0002",
+    "WI-2026-04-07-001",
+]
+
+[check]
+command = "pixi run python -m pytest agent-skill-bench/tests -q"
+timeout_secs = 600

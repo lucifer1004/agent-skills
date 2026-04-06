@@ -1,0 +1,59 @@
+#:schema ../schema/work.schema.json
+
+[govctl]
+id = "WI-2026-04-07-001"
+title = "Add governance verification guards for skill-bench"
+status = "done"
+created = "2026-04-07"
+started = "2026-04-07"
+completed = "2026-04-07"
+refs = [
+    "ADR-0001",
+    "ADR-0004",
+    "RFC-0001",
+    "RFC-0002",
+]
+
+[content]
+description = "Add reusable governance verification guards for the root repository so `agent-skill-bench` governance and test checks run through `govctl verify`, and wire CI to execute the same guard set. This closes the initial governance loop by making the accepted ADR/RFC baseline enforceable in both local and CI workflows."
+
+[[content.journal]]
+date = "2026-04-07"
+scope = "governance"
+content = """
+Created reusable verification guards for `govctl check` and `agent-skill-bench` tests, enabled them as project defaults in `gov/config.toml`, and added a GitHub Actions workflow that runs `govctl verify`.
+
+Validation:
+- `govctl check`
+- `govctl verify`
+- `pixi run python -m pytest agent-skill-bench/tests -q`"""
+
+[[content.acceptance_criteria]]
+text = "Define a guard that runs govctl check from the repository root"
+status = "done"
+category = "added"
+
+[[content.acceptance_criteria]]
+text = "Define a guard that runs agent-skill-bench tests from the repository root"
+status = "done"
+category = "added"
+
+[[content.acceptance_criteria]]
+text = "Enable project-level default verification guards in gov/config.toml"
+status = "done"
+category = "changed"
+
+[[content.acceptance_criteria]]
+text = "Add CI that runs the project guard set via govctl verify"
+status = "done"
+category = "added"
+
+[[content.acceptance_criteria]]
+text = "govctl check passes"
+status = "done"
+category = "chore"
+
+[[content.acceptance_criteria]]
+text = "agent-skill-bench tests pass"
+status = "done"
+category = "chore"

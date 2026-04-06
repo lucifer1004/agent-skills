@@ -1,0 +1,14 @@
+#:schema ../schema/guard.schema.json
+
+[govctl]
+id = "GUARD-GOVCTL-CHECK-PASSES"
+title = "govctl check passes"
+refs = [
+    "RFC-0001",
+    "RFC-0002",
+    "WI-2026-04-07-001",
+]
+
+[check]
+command = "govctl check"
+timeout_secs = 300
