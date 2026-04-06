@@ -10,11 +10,14 @@ from pathlib import Path
 import sys
 from typing import Sequence
 
+from .application import (
+    BenchmarkRunRequest,
+    BenchmarkService,
+    get_runtime,
+    save_run_results,
+)
 from .discovery import discover_case_files
-from .judges import get_judge
-from .providers import get_provider
 from .reporting import load_run_artifacts, summarize_run_artifacts
-from .runners import BenchmarkRunConfig, BenchmarkRunner, save_run_results
 
 LOG_LEVELS = ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG")
 
@@ -32,35 +35,37 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.command == "run":
-        provider = get_provider(
-            args.provider,
+        candidate_runtime = get_runtime(
+            args.candidate_runtime,
             cwd=args.cwd,
-            system_prompt=args.system_prompt,
+            instructions=args.instructions,
             max_turns=args.max_turns,
             timeout_seconds=args.timeout_seconds,
             cli_path=args.cli_path,
+            model=args.model,
         )
-        judge = (
-            get_judge(
-                args.judge,
+        judge_runtime = (
+            get_runtime(
+                args.judge_runtime,
                 cli_path=args.cli_path,
                 timeout_seconds=args.timeout_seconds,
+                model=args.model,
             )
-            if args.judge
+            if args.judge_runtime
             else None
         )
-        runner = BenchmarkRunner(provider, judge=judge)
+        service = BenchmarkService(candidate_runtime, judge_runtime=judge_runtime)
         case_paths = _resolve_case_paths(args.root, args.case)
-        config = BenchmarkRunConfig(
-            provider_name=provider.name,
+        request = BenchmarkRunRequest(
             suite_filter=args.suite,
             case_ids=set(args.case_id),
-            execution_profile=args.execution_profile,
-            judge_profile=args.judge_profile,
+            execution_policy_name=args.execution_policy,
+            rule_policy_name=args.rule_policy,
+            judge_policy_name=args.judge_policy,
             skill_paths=[path.resolve() for path in args.skill] if args.skill else None,
             no_skills=args.no_skills,
         )
-        results = runner.run_case_files(case_paths, config=config)
+        results = service.run_case_files(case_paths, request=request)
         output_path = _resolve_output_path(args)
         save_run_results(results, output_path)
         print(f"Saved benchmark results to {output_path}", file=sys.stderr)
@@ -91,23 +96,24 @@ def build_parser() -> argparse.ArgumentParser:
     discover = subparsers.add_parser("discover", help="Discover benchmark case files")
     discover.add_argument("root", type=Path, help="Collection root to search")
 
-    run = subparsers.add_parser("run", help="Run benchmark cases through a provider")
-    run.add_argument("--provider", default="mock", help="Provider name")
-    run.add_argument("--judge", help="Optional judge name")
+    run = subparsers.add_parser("run", help="Run benchmark cases through a candidate runtime")
+    run.add_argument("--candidate-runtime", default="mock", help="Candidate runtime name")
+    run.add_argument("--judge-runtime", help="Optional judge runtime name")
     run.add_argument("--root", type=Path, help="Collection root to discover cases from")
-    run.add_argument("--cwd", type=Path, help="Optional provider working directory override")
-    run.add_argument("--system-prompt", help="Optional provider system prompt")
+    run.add_argument("--cwd", type=Path, help="Optional candidate runtime working directory override")
+    run.add_argument("--instructions", help="Optional runtime instructions override")
     run.add_argument(
         "--max-turns",
         type=int,
-        help="Provider max turns override. Defaults to the selected execution profile.",
+        help="Runtime max turns override. Defaults to the selected execution policy when supported.",
     )
     run.add_argument(
         "--timeout-seconds",
         type=float,
-        help="Provider timeout override in seconds. Defaults to the selected execution profile.",
+        help="Runtime timeout override in seconds. Defaults to the selected execution policy.",
     )
-    run.add_argument("--cli-path", help="Optional path to the Claude Code executable")
+    run.add_argument("--cli-path", help="Optional path to the CLI executable used by a runtime")
+    run.add_argument("--model", help="Optional model identifier for runtimes that support it")
     run.add_argument(
         "--skill",
         action="append",
@@ -121,12 +127,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run without injecting any skills, even if the suite defines defaults.",
     )
     run.add_argument(
-        "--execution-profile",
-        help="Execution profile override. Defaults to the case or suite profile.",
+        "--execution-policy",
+        help="Execution policy override. Defaults to the case or suite policy.",
     )
     run.add_argument(
-        "--judge-profile",
-        help="Judge profile override. Defaults to the case or suite judge profile.",
+        "--rule-policy",
+        help="Rule policy override. Defaults to the case or suite rule policy.",
+    )
+    run.add_argument(
+        "--judge-policy",
+        help="Judge policy override. Defaults to the case or suite judge policy.",
     )
     run.add_argument(
         "--results-dir",
@@ -182,7 +192,7 @@ def _resolve_output_path(args: argparse.Namespace) -> Path:
 
     results_dir = args.results_dir or _default_results_dir(args.root)
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
-    return results_dir / f"{timestamp}-{args.provider}.json"
+    return results_dir / f"{timestamp}-{args.candidate_runtime}.json"
 
 
 def _default_results_dir(root: Path | None) -> Path:

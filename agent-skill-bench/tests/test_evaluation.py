@@ -1,32 +1,32 @@
-"""Evaluation engine tests."""
+"""Deterministic rule assessment tests."""
 
 from agent_skill_bench import (
     BenchmarkCase,
     BenchmarkMode,
-    BenchmarkPromptContract,
     BenchmarkSuite,
-    BenchmarkRunner,
-    ResolvedBenchmarkCase,
-    evaluate_output,
-    get_execution_profile,
+    PromptContract,
+    ResolvedCase,
+    RuleEvaluationPolicy,
+    evaluate_rule_assessment,
+    get_execution_policy,
 )
 
 
-def _suite_with_generate_profile() -> BenchmarkSuite:
+def _suite_with_generate_policy() -> BenchmarkSuite:
     return BenchmarkSuite(
         schema_version=1,
         suite_id="uiux",
         title="UIUX",
-        default_execution_profile="isolated_prompt",
-        default_evaluation_profile="uiux-default",
-        evaluation_profiles={
+        default_execution_policy="isolated_prompt",
+        default_rule_policy="uiux-default",
+        rule_policies={
             "uiux-default": BenchmarkSuite.from_dict(
                 {
                     "schema_version": 1,
                     "suite_id": "uiux",
                     "title": "UIUX",
-                    "default_execution_profile": "isolated_prompt",
-                    "evaluation_profiles": {
+                    "default_execution_policy": "isolated_prompt",
+                    "rule_policies": {
                         "uiux-default": {
                             "forbid_code_fences": True,
                             "require_first_heading": True,
@@ -50,9 +50,9 @@ def _suite_with_generate_profile() -> BenchmarkSuite:
                         }
                     },
                 }
-            ).evaluation_profiles["uiux-default"]
+            ).rule_policies["uiux-default"]
         },
-        benchmark_prompt=BenchmarkPromptContract(
+        prompt_contract=PromptContract(
             mode_headings={
                 BenchmarkMode.GENERATE: [
                     "Screen Goal",
@@ -69,9 +69,9 @@ def _suite_with_generate_profile() -> BenchmarkSuite:
     )
 
 
-def test_evaluate_output_uses_suite_owned_rules():
-    case = ResolvedBenchmarkCase(
-        suite=_suite_with_generate_profile(),
+def test_rule_assessment_uses_suite_owned_rules():
+    case = ResolvedCase(
+        suite=_suite_with_generate_policy(),
         case=BenchmarkCase(
             schema_version=1,
             id="uiux.generate.sample",
@@ -79,8 +79,8 @@ def test_evaluate_output_uses_suite_owned_rules():
             mode=BenchmarkMode.GENERATE,
             prompt="Design a page.",
         ),
-        execution_profile=get_execution_profile("isolated_prompt"),
-        evaluation_profile="uiux-default",
+        execution_policy=get_execution_policy("isolated_prompt"),
+        rule_policy=_suite_with_generate_policy().rule_policies["uiux-default"],
     )
 
     output = """## Screen Goal
@@ -108,17 +108,18 @@ Clarity before ornament.
 Too many comparison points can slow scanning.
 """
 
-    evaluation = evaluate_output(case, output)
+    assessment = evaluate_rule_assessment(case, output)
 
-    assert evaluation.passed is True
-    assert evaluation.failure_modes == []
-    assert all(check.passed for check in evaluation.contract_checks)
-    assert all(check.passed for check in evaluation.rule_checks)
+    assert assessment.passed is True
+    assert assessment.failure_modes == []
+    assert all(check.passed for check in assessment.contract_checks)
+    assert all(check.passed for check in assessment.rule_checks)
 
 
-def test_evaluate_output_fails_when_rule_profile_conditions_fail():
-    case = ResolvedBenchmarkCase(
-        suite=_suite_with_generate_profile(),
+def test_rule_assessment_fails_when_policy_conditions_fail():
+    suite = _suite_with_generate_policy()
+    case = ResolvedCase(
+        suite=suite,
         case=BenchmarkCase(
             schema_version=1,
             id="uiux.generate.sample",
@@ -126,8 +127,8 @@ def test_evaluate_output_fails_when_rule_profile_conditions_fail():
             mode=BenchmarkMode.GENERATE,
             prompt="Design a page.",
         ),
-        execution_profile=get_execution_profile("isolated_prompt"),
-        evaluation_profile="uiux-default",
+        execution_policy=get_execution_policy("isolated_prompt"),
+        rule_policy=suite.rule_policies["uiux-default"],
     )
 
     output = """Preface
@@ -160,9 +161,180 @@ Clarity before ornament.
 ```
 """
 
-    evaluation = evaluate_output(case, output)
+    assessment = evaluate_rule_assessment(case, output)
 
-    assert evaluation.passed is False
-    assert "starts_with_required_heading" in evaluation.failure_modes
-    assert "no_code_fences" in evaluation.failure_modes
-    assert "states_have_terms" in evaluation.failure_modes
+    assert assessment.passed is False
+    assert "starts_with_required_heading" in assessment.failure_modes
+    assert "no_code_fences" in assessment.failure_modes
+    assert "states_have_terms" in assessment.failure_modes
+
+
+def test_rule_assessment_treats_nested_subheadings_as_parent_section_content():
+    suite = BenchmarkSuite(
+        schema_version=1,
+        suite_id="uiux",
+        title="UIUX",
+        default_execution_policy="isolated_prompt",
+        default_rule_policy="uiux-handoff",
+        rule_policies={
+            "uiux-handoff": RuleEvaluationPolicy(
+                name="uiux-handoff",
+                forbid_code_fences=True,
+                require_first_heading=True,
+            )
+        },
+        prompt_contract=PromptContract(
+            mode_headings={
+                BenchmarkMode.IMPLEMENT_HANDOFF: [
+                    "Scope",
+                    "Component Requirements",
+                    "State Matrix",
+                    "Layout Rules",
+                ]
+            }
+        ),
+    )
+    case = ResolvedCase(
+        suite=suite,
+        case=BenchmarkCase(
+            schema_version=1,
+            id="uiux.handoff.nested-headings",
+            title="Nested Headings",
+            mode=BenchmarkMode.IMPLEMENT_HANDOFF,
+            prompt="Produce a handoff.",
+        ),
+        execution_policy=get_execution_policy("isolated_prompt"),
+        rule_policy=suite.rule_policies["uiux-handoff"],
+    )
+
+    output = """## Scope
+Summary layer only.
+
+## Component Requirements
+### Metric Card
+- Variant A
+- Variant B
+
+## State Matrix
+### Loading
+- Skeleton
+
+## Layout Rules
+### Desktop
+- Three columns
+"""
+
+    assessment = evaluate_rule_assessment(case, output)
+
+    assert assessment.passed is True
+    assert "required_sections_non_empty" not in assessment.failure_modes
+
+
+def test_rule_assessment_allows_optional_h1_title_block_before_required_sections():
+    suite = BenchmarkSuite(
+        schema_version=1,
+        suite_id="uiux",
+        title="UIUX",
+        default_execution_policy="isolated_prompt",
+        default_rule_policy="uiux-generate",
+        rule_policies={
+            "uiux-generate": RuleEvaluationPolicy(
+                name="uiux-generate",
+                forbid_code_fences=True,
+                require_first_heading=True,
+            )
+        },
+        prompt_contract=PromptContract(
+            required_heading_level=2,
+            allow_document_title=True,
+            mode_headings={
+                BenchmarkMode.GENERATE: [
+                    "Screen Goal",
+                    "Layout Blocks",
+                ]
+            },
+        ),
+    )
+    case = ResolvedCase(
+        suite=suite,
+        case=BenchmarkCase(
+            schema_version=1,
+            id="uiux.generate.h1-title",
+            title="H1 Title",
+            mode=BenchmarkMode.GENERATE,
+            prompt="Produce a generate answer.",
+        ),
+        execution_policy=get_execution_policy("isolated_prompt"),
+        rule_policy=suite.rule_policies["uiux-generate"],
+    )
+
+    output = """# Pricing Page Spec
+
+---
+
+## Screen Goal
+Help buyers choose a plan quickly.
+
+## Layout Blocks
+Hero, comparison grid, FAQ.
+"""
+
+    assessment = evaluate_rule_assessment(case, output)
+
+    assert assessment.passed is True
+    assert "starts_with_required_heading" not in assessment.failure_modes
+
+
+def test_rule_assessment_rejects_h1_with_body_before_first_required_section():
+    suite = BenchmarkSuite(
+        schema_version=1,
+        suite_id="uiux",
+        title="UIUX",
+        default_execution_policy="isolated_prompt",
+        default_rule_policy="uiux-generate",
+        rule_policies={
+            "uiux-generate": RuleEvaluationPolicy(
+                name="uiux-generate",
+                forbid_code_fences=True,
+                require_first_heading=True,
+            )
+        },
+        prompt_contract=PromptContract(
+            required_heading_level=2,
+            allow_document_title=True,
+            mode_headings={
+                BenchmarkMode.GENERATE: [
+                    "Screen Goal",
+                    "Layout Blocks",
+                ]
+            },
+        ),
+    )
+    case = ResolvedCase(
+        suite=suite,
+        case=BenchmarkCase(
+            schema_version=1,
+            id="uiux.generate.h1-body",
+            title="H1 Body",
+            mode=BenchmarkMode.GENERATE,
+            prompt="Produce a generate answer.",
+        ),
+        execution_policy=get_execution_policy("isolated_prompt"),
+        rule_policy=suite.rule_policies["uiux-generate"],
+    )
+
+    output = """# Pricing Page Spec
+
+This intro paragraph should not appear before the required sections.
+
+## Screen Goal
+Help buyers choose a plan quickly.
+
+## Layout Blocks
+Hero, comparison grid, FAQ.
+"""
+
+    assessment = evaluate_rule_assessment(case, output)
+
+    assert assessment.passed is False
+    assert "starts_with_required_heading" in assessment.failure_modes

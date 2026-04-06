@@ -35,9 +35,9 @@ def test_cli_run_mock_outputs_results(tmp_path: Path, capsys, monkeypatch):
                 "suite_id": "uiux",
                 "title": "UIUX Suite",
                 "default_skills": ["../skills/uiux"],
-                "default_execution_profile": "isolated_prompt",
-                "default_evaluation_profile": "uiux-default",
-                "evaluation_profiles": {
+                "default_execution_policy": "isolated_prompt",
+                "default_rule_policy": "uiux-default",
+                "rule_policies": {
                     "uiux-default": {
                         "forbid_code_fences": True,
                         "require_first_heading": True,
@@ -53,7 +53,7 @@ def test_cli_run_mock_outputs_results(tmp_path: Path, capsys, monkeypatch):
                         }
                     }
                 },
-                "benchmark_prompt": {
+                "prompt_contract": {
                     "mode_headings": {
                         "Generate": ["Screen Goal", "Layout Blocks"]
                     }
@@ -74,8 +74,8 @@ def test_cli_run_mock_outputs_results(tmp_path: Path, capsys, monkeypatch):
                 "expectations": {
                     "must_cover": [],
                     "must_avoid": [],
-                    "golden_signals": [],
-                },
+                    "golden_signals": []
+                }
             }
         ),
         encoding="utf-8",
@@ -83,19 +83,19 @@ def test_cli_run_mock_outputs_results(tmp_path: Path, capsys, monkeypatch):
 
     monkeypatch.chdir(tmp_path)
 
-    exit_code = main(["run", "--provider", "mock", "--case", str(case)])
+    exit_code = main(["run", "--candidate-runtime", "mock", "--case", str(case)])
 
     assert exit_code == 0
     captured = capsys.readouterr()
     output = json.loads(captured.out)
     assert len(output) == 1
     assert output[0]["case_id"] == "uiux.generate.cli"
-    assert output[0]["provider_name"] == "mock"
+    assert output[0]["candidate_runtime_name"] == "mock"
     assert output[0]["skill_paths"] == [str(skill_dir.resolve())]
     assert output[0]["skill_binding"]["requested_skills"] == ["uiux"]
     assert output[0]["skill_binding"]["registration_status"] == "unconfirmed"
     assert output[0]["output_text"].startswith("[mock:Generate]")
-    assert output[0]["evaluation"]["profile"] == "uiux-default"
+    assert output[0]["rule_assessment"]["policy"] == "uiux-default"
     saved_prefix = "Saved benchmark results to "
     assert captured.err.startswith(saved_prefix)
     saved_path = Path(captured.err.removeprefix(saved_prefix).strip())
@@ -113,15 +113,15 @@ def test_cli_run_respects_explicit_output_and_skill_override(tmp_path: Path, cap
     (override_skill / "SKILL.md").write_text("Manual skill", encoding="utf-8")
     (suite_dir / "suite.json").write_text(
         json.dumps(
-                {
-                    "schema_version": 1,
-                    "suite_id": "uiux",
-                    "title": "UIUX Suite",
-                    "default_execution_profile": "isolated_prompt",
-                }
-            ),
-            encoding="utf-8",
-        )
+            {
+                "schema_version": 1,
+                "suite_id": "uiux",
+                "title": "UIUX Suite",
+                "default_execution_policy": "isolated_prompt"
+            }
+        ),
+        encoding="utf-8",
+    )
     case = case_dir / "sample.json"
     case.write_text(
         json.dumps(
@@ -134,8 +134,8 @@ def test_cli_run_respects_explicit_output_and_skill_override(tmp_path: Path, cap
                 "expectations": {
                     "must_cover": [],
                     "must_avoid": [],
-                    "golden_signals": [],
-                },
+                    "golden_signals": []
+                }
             }
         ),
         encoding="utf-8",
@@ -146,7 +146,7 @@ def test_cli_run_respects_explicit_output_and_skill_override(tmp_path: Path, cap
     exit_code = main(
         [
             "run",
-            "--provider",
+            "--candidate-runtime",
             "mock",
             "--case",
             str(case),
@@ -174,18 +174,18 @@ def test_cli_report_summarizes_saved_run_artifacts(tmp_path: Path, capsys):
                 {
                     "case_id": "uiux.generate.one",
                     "suite_id": "uiux",
-                    "provider_name": "mock",
+                    "candidate_runtime_name": "mock",
                     "mode": "Generate",
-                    "evaluation": {"passed": True, "failure_modes": []},
-                    "judge_evaluation": {"judge_name": "mock", "passed": True},
+                    "rule_assessment": {"passed": True, "failure_modes": []},
+                    "judge_assessment": {"judge_runtime_name": "mock", "passed": True},
                 },
                 {
                     "case_id": "uiux.review.one",
                     "suite_id": "uiux",
-                    "provider_name": "claude",
+                    "candidate_runtime_name": "claude",
                     "mode": "Review",
-                    "evaluation": {"passed": False, "failure_modes": ["no_code_fences"]},
-                    "judge_evaluation": {"judge_name": "mock", "passed": False},
+                    "rule_assessment": {"passed": False, "failure_modes": ["no_code_fences"]},
+                    "judge_assessment": {"judge_runtime_name": "mock", "passed": False},
                 },
             ]
         ),
@@ -202,7 +202,7 @@ def test_cli_report_summarizes_saved_run_artifacts(tmp_path: Path, capsys):
     assert output["top_failure_modes"] == [{"code": "no_code_fences", "count": 1}]
 
 
-def test_cli_run_can_attach_mock_judge(tmp_path: Path, capsys, monkeypatch):
+def test_cli_run_can_attach_mock_judge_runtime(tmp_path: Path, capsys, monkeypatch):
     suite_dir = tmp_path / "agent-skill-uiux" / "benchmarks"
     case_dir = suite_dir / "cases"
     suite_dir.mkdir(parents=True)
@@ -213,7 +213,7 @@ def test_cli_run_can_attach_mock_judge(tmp_path: Path, capsys, monkeypatch):
                 "schema_version": 1,
                 "suite_id": "uiux",
                 "title": "UIUX Suite",
-                "default_execution_profile": "isolated_prompt"
+                "default_execution_policy": "isolated_prompt"
             }
         ),
         encoding="utf-8",
@@ -238,9 +238,19 @@ def test_cli_run_can_attach_mock_judge(tmp_path: Path, capsys, monkeypatch):
     )
 
     monkeypatch.chdir(tmp_path)
-    exit_code = main(["run", "--provider", "mock", "--judge", "mock", "--case", str(case)])
+    exit_code = main(
+        [
+            "run",
+            "--candidate-runtime",
+            "mock",
+            "--judge-runtime",
+            "mock",
+            "--case",
+            str(case),
+        ]
+    )
 
     assert exit_code == 0
     output = json.loads(capsys.readouterr().out)
-    assert output[0]["judge_evaluation"]["judge_name"] == "mock"
-    assert output[0]["judge_evaluation"]["dimensions"][0]["name"] == "contract_adherence"
+    assert output[0]["judge_assessment"]["judge_runtime_name"] == "mock"
+    assert output[0]["judge_assessment"]["dimensions"][0]["name"] == "contract_adherence"

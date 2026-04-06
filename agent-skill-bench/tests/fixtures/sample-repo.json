@@ -9,6 +9,8 @@
     "must_avoid": [],
     "golden_signals": []
   },
-  "repo_path": "../fixtures-repo",
-  "cwd": "app"
+  "repo": {
+    "path": "../fixtures-repo",
+    "working_dir": "app"
+  }
 }

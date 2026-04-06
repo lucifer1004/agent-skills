@@ -5,7 +5,7 @@ from pathlib import Path
 from agent_skill_bench import (
     BenchmarkKind,
     BenchmarkMode,
-    get_execution_profile,
+    get_execution_policy,
     load_case,
     load_suite,
     resolve_case,
@@ -37,16 +37,18 @@ def test_load_suite_from_json():
 
     assert suite.schema_version == 1
     assert suite.suite_id == "uiux"
-    assert suite.default_execution_profile == "isolated_prompt"
-    assert suite.default_evaluation_profile == "uiux-default"
-    assert suite.default_judge_profile == "uiux-judge"
-    assert "uiux-default" in suite.evaluation_profiles
-    assert "uiux-judge" in suite.judge_profiles
+    assert suite.default_execution_policy == "isolated_prompt"
+    assert suite.default_rule_policy == "uiux-default"
+    assert suite.default_judge_policy == "uiux-judge"
+    assert "uiux-default" in suite.rule_policies
+    assert "uiux-judge" in suite.judge_policies
     assert len(suite.resolve_default_skills()) == 1
     assert suite.resolve_default_skills()[0].name == "uiux"
-    assert suite.benchmark_prompt is not None
-    assert suite.benchmark_prompt.preamble == ["You are being benchmarked on a UI/UX skill."]
-    assert suite.benchmark_prompt.mode_headings[BenchmarkMode.GENERATE][0] == "Screen Goal"
+    assert suite.prompt_contract is not None
+    assert suite.prompt_contract.preamble == ["You are being benchmarked on a UI/UX skill."]
+    assert suite.prompt_contract.required_heading_level == 2
+    assert suite.prompt_contract.allow_document_title is True
+    assert suite.prompt_contract.mode_headings[BenchmarkMode.GENERATE][0] == "Screen Goal"
 
 
 def test_prompt_case_renders_attached_files():
@@ -92,10 +94,10 @@ def test_resolve_case_applies_suite_defaults(tmp_path: Path):
           "suite_id": "uiux",
           "title": "UIUX Suite",
           "default_skills": ["../skills/uiux"],
-          "default_execution_profile": "isolated_prompt",
-          "default_evaluation_profile": "uiux-default",
-          "default_judge_profile": "uiux-judge",
-          "evaluation_profiles": {
+          "default_execution_policy": "isolated_prompt",
+          "default_rule_policy": "uiux-default",
+          "default_judge_policy": "uiux-judge",
+          "rule_policies": {
             "uiux-default": {
               "forbid_code_fences": true,
               "require_first_heading": true,
@@ -111,7 +113,7 @@ def test_resolve_case_applies_suite_defaults(tmp_path: Path):
               }
             }
           },
-          "judge_profiles": {
+          "judge_policies": {
             "uiux-judge": {
               "dimensions": [
                 {
@@ -121,7 +123,7 @@ def test_resolve_case_applies_suite_defaults(tmp_path: Path):
               ]
             }
           },
-          "benchmark_prompt": {
+          "prompt_contract": {
             "preamble": ["You are being benchmarked on a UI/UX skill."],
             "shared_rules": ["Use the required headings exactly once and in order."],
             "mode_headings": {
@@ -154,18 +156,21 @@ def test_resolve_case_applies_suite_defaults(tmp_path: Path):
 
     assert resolved.suite_id == "uiux"
     assert resolved.mode is BenchmarkMode.GENERATE
-    assert resolved.execution_profile == get_execution_profile("isolated_prompt")
-    assert resolved.evaluation_profile == "uiux-default"
-    assert resolved.judge_profile == "uiux-judge"
-    assert resolved.suite.resolve_evaluation_profile("uiux-default") is not None
-    assert resolved.suite.resolve_judge_profile("uiux-judge") is not None
+    assert resolved.execution_policy == get_execution_policy("isolated_prompt")
+    assert resolved.rule_policy is not None
+    assert resolved.rule_policy.name == "uiux-default"
+    assert resolved.judge_policy is not None
+    assert resolved.judge_policy.name == "uiux-judge"
+    assert resolved.suite.resolve_rule_policy("uiux-default") is not None
+    assert resolved.suite.resolve_judge_policy("uiux-judge") is not None
     assert resolved.skill_paths == [skill_dir.resolve()]
     rendered = resolved.render_prompt()
     assert "You are being benchmarked on a UI/UX skill." in rendered
     assert "User Request:" in rendered
     assert "Benchmark Rules:" in rendered
     assert "Required Output Headings (Generate):" in rendered
-    assert "- Screen Goal" in rendered
+    assert "Optional title block: one level-1 Markdown title" in rendered
+    assert "- ## Screen Goal" in rendered
     assert rendered.endswith("Return only the final answer.")
 
 
@@ -180,7 +185,7 @@ def test_resolve_case_can_disable_suite_skills(tmp_path: Path):
           "suite_id": "uiux",
           "title": "UIUX Suite",
           "default_skills": ["../skills/uiux"],
-          "default_execution_profile": "isolated_prompt"
+          "default_execution_policy": "isolated_prompt"
         }
         """,
         encoding="utf-8",

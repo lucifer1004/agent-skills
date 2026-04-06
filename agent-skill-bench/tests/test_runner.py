@@ -1,28 +1,61 @@
-"""Runner tests."""
+"""Benchmark service tests."""
 
 from dataclasses import dataclass
 import json
 from pathlib import Path
 
-from agent_skill_bench import BenchmarkCase, BenchmarkMode, BenchmarkRunner, BenchmarkSuite, MockBenchmarkJudge, ResolvedBenchmarkCase, get_execution_profile
-from agent_skill_bench.providers import ProviderRunResponse
-from agent_skill_bench.runners import save_run_results
+from agent_skill_bench import (
+    BenchmarkCase,
+    BenchmarkMode,
+    BenchmarkService,
+    BenchmarkSuite,
+    MockAgentRuntime,
+    ResolvedCase,
+    get_execution_policy,
+    save_run_results,
+)
+from agent_skill_bench.infrastructure.agent_runtime import AgentRunResult, AgentRunSpec
 
 
 @dataclass
-class FakeProvider:
+class FakeRuntime:
     name: str = "fake"
 
-    def run_case(self, case: ResolvedBenchmarkCase) -> ProviderRunResponse:
-        return ProviderRunResponse(
-            output_text=f"handled:{case.id}",
-            metadata={"mode": case.mode.value},
+    def run(self, spec: AgentRunSpec) -> AgentRunResult:
+        if spec.purpose == "candidate":
+            return AgentRunResult(
+                output_text=f"handled:{spec.metadata['case_id']}",
+                metadata={"mode": str(spec.metadata["case_mode"])},
+            )
+        return AgentRunResult(
+            output_text=json.dumps(
+                {
+                    "passed": True,
+                    "summary": "judged",
+                    "dimensions": [
+                        {"name": "contract_adherence", "score": 3, "rationale": "ok"},
+                    ],
+                }
+            ),
+            parsed_output={
+                "passed": True,
+                "summary": "judged",
+                "dimensions": [
+                    {"name": "contract_adherence", "score": 3, "rationale": "ok"},
+                ],
+            },
+            metadata={"case_mode": str(spec.metadata["case_mode"])},
         )
 
 
-def test_runner_normalizes_provider_output():
-    case = ResolvedBenchmarkCase(
-        suite=BenchmarkSuite(schema_version=1, suite_id="uiux", title="UIUX", default_execution_profile="isolated_prompt"),
+def test_service_normalizes_candidate_output():
+    case = ResolvedCase(
+        suite=BenchmarkSuite(
+            schema_version=1,
+            suite_id="uiux",
+            title="UIUX",
+            default_execution_policy="isolated_prompt",
+        ),
         case=BenchmarkCase(
             schema_version=1,
             id="uiux.review.sample",
@@ -30,29 +63,34 @@ def test_runner_normalizes_provider_output():
             mode=BenchmarkMode.REVIEW,
             prompt="Review this UI",
         ),
-        execution_profile=get_execution_profile("isolated_prompt"),
+        execution_policy=get_execution_policy("isolated_prompt"),
     )
 
-    result = BenchmarkRunner(FakeProvider()).run_case(case)
+    result = BenchmarkService(FakeRuntime()).run_case(case)
 
     assert result.case_id == "uiux.review.sample"
     assert result.suite_id == "uiux"
-    assert result.provider_name == "fake"
+    assert result.candidate_runtime_name == "fake"
     assert result.output_text == "handled:uiux.review.sample"
     assert result.metadata == {"mode": "Review"}
     assert result.mode == "Review"
     assert result.kind == "prompt"
-    assert result.execution_profile == "isolated_prompt"
+    assert result.execution_policy == "isolated_prompt"
     assert result.skill_binding.registration_status == "not_requested"
     assert result.skill_binding.registration_confirmed is None
-    assert result.evaluation is not None
-    assert result.evaluation.profile is None
+    assert result.rule_assessment is not None
+    assert result.rule_assessment.policy is None
     assert result.duration_seconds >= 0
 
 
 def test_save_run_results_persists_json(tmp_path: Path):
-    case = ResolvedBenchmarkCase(
-        suite=BenchmarkSuite(schema_version=1, suite_id="uiux", title="UIUX", default_execution_profile="isolated_prompt"),
+    case = ResolvedCase(
+        suite=BenchmarkSuite(
+            schema_version=1,
+            suite_id="uiux",
+            title="UIUX",
+            default_execution_policy="isolated_prompt",
+        ),
         case=BenchmarkCase(
             schema_version=1,
             id="uiux.generate.sample",
@@ -60,9 +98,9 @@ def test_save_run_results_persists_json(tmp_path: Path):
             mode=BenchmarkMode.GENERATE,
             prompt="Generate a page.",
         ),
-        execution_profile=get_execution_profile("isolated_prompt"),
+        execution_policy=get_execution_policy("isolated_prompt"),
     )
-    result = BenchmarkRunner(FakeProvider()).run_case(case)
+    result = BenchmarkService(FakeRuntime()).run_case(case)
 
     output_path = tmp_path / "runs" / "result.json"
     saved_path = save_run_results([result], output_path)
@@ -70,22 +108,22 @@ def test_save_run_results_persists_json(tmp_path: Path):
     assert saved_path == output_path
     payload = json.loads(output_path.read_text(encoding="utf-8"))
     assert payload[0]["case_id"] == "uiux.generate.sample"
-    assert payload[0]["provider_name"] == "fake"
+    assert payload[0]["candidate_runtime_name"] == "fake"
     assert payload[0]["skill_binding"]["registration_status"] == "not_requested"
-    assert "evaluation" in payload[0]
+    assert "rule_assessment" in payload[0]
 
 
-def test_runner_marks_skill_registration_from_provider_metadata(tmp_path: Path):
+def test_service_marks_skill_registration_from_runtime_metadata(tmp_path: Path):
     skill_dir = tmp_path / "uiux"
     skill_dir.mkdir()
     (skill_dir / "SKILL.md").write_text("UIUX skill", encoding="utf-8")
 
     @dataclass
-    class SkillAwareProvider:
+    class SkillAwareRuntime:
         name: str = "claude"
 
-        def run_case(self, case: ResolvedBenchmarkCase) -> ProviderRunResponse:
-            return ProviderRunResponse(
+        def run(self, spec: AgentRunSpec) -> AgentRunResult:
+            return AgentRunResult(
                 output_text="handled",
                 metadata={
                     "injected_skills": "uiux",
@@ -93,8 +131,13 @@ def test_runner_marks_skill_registration_from_provider_metadata(tmp_path: Path):
                 },
             )
 
-    case = ResolvedBenchmarkCase(
-        suite=BenchmarkSuite(schema_version=1, suite_id="uiux", title="UIUX", default_execution_profile="isolated_prompt"),
+    case = ResolvedCase(
+        suite=BenchmarkSuite(
+            schema_version=1,
+            suite_id="uiux",
+            title="UIUX",
+            default_execution_policy="isolated_prompt",
+        ),
         case=BenchmarkCase(
             schema_version=1,
             id="uiux.generate.registered-skill",
@@ -102,24 +145,29 @@ def test_runner_marks_skill_registration_from_provider_metadata(tmp_path: Path):
             mode=BenchmarkMode.GENERATE,
             prompt="Generate a page.",
         ),
-        execution_profile=get_execution_profile("isolated_prompt"),
+        execution_policy=get_execution_policy("isolated_prompt"),
         skill_paths=[skill_dir],
     )
 
-    result = BenchmarkRunner(SkillAwareProvider()).run_case(case)
+    result = BenchmarkService(SkillAwareRuntime()).run_case(case)
 
     assert result.skill_binding.requested_skills == ["uiux"]
     assert result.skill_binding.injected_skills == ["uiux"]
     assert result.skill_binding.registered_skills == ["uiux"]
     assert result.skill_binding.registration_status == "registered"
     assert result.skill_binding.registration_confirmed is True
-    assert result.skill_binding.registration_evidence == "provider_metadata.cli_init"
+    assert result.skill_binding.registration_evidence == "runtime_metadata.cli_init"
     assert result.skill_binding.usage_confirmed is None
 
 
-def test_runner_can_attach_judge_evaluation():
-    case = ResolvedBenchmarkCase(
-        suite=BenchmarkSuite(schema_version=1, suite_id="uiux", title="UIUX", default_execution_profile="isolated_prompt"),
+def test_service_can_attach_judge_assessment():
+    case = ResolvedCase(
+        suite=BenchmarkSuite(
+            schema_version=1,
+            suite_id="uiux",
+            title="UIUX",
+            default_execution_policy="isolated_prompt",
+        ),
         case=BenchmarkCase(
             schema_version=1,
             id="uiux.review.judged",
@@ -127,11 +175,11 @@ def test_runner_can_attach_judge_evaluation():
             mode=BenchmarkMode.REVIEW,
             prompt="Review this UI",
         ),
-        execution_profile=get_execution_profile("isolated_prompt"),
+        execution_policy=get_execution_policy("isolated_prompt"),
     )
 
-    result = BenchmarkRunner(FakeProvider(), judge=MockBenchmarkJudge()).run_case(case)
+    result = BenchmarkService(FakeRuntime(), judge_runtime=MockAgentRuntime()).run_case(case)
 
-    assert result.judge_evaluation is not None
-    assert result.judge_evaluation.judge_name == "mock"
-    assert result.judge_evaluation.metadata["case_mode"] == "Review"
+    assert result.judge_assessment is not None
+    assert result.judge_assessment.judge_runtime_name == "mock"
+    assert result.judge_assessment.metadata["case_mode"] == "Review"

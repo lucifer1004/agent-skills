@@ -32,35 +32,37 @@ def summarize_run_artifacts(records: list[dict[str, object]]) -> dict[str, objec
     judge_passed_runs = 0
     by_suite: dict[str, dict[str, int]] = defaultdict(_empty_bucket)
     by_mode: dict[str, dict[str, int]] = defaultdict(_empty_bucket)
-    by_provider: dict[str, dict[str, int]] = defaultdict(_empty_bucket)
-    by_judge: dict[str, dict[str, int]] = defaultdict(_empty_bucket)
+    by_candidate_runtime: dict[str, dict[str, int]] = defaultdict(_empty_bucket)
+    by_judge_runtime: dict[str, dict[str, int]] = defaultdict(_empty_bucket)
     failure_modes = Counter()
 
     for record in records:
-        evaluation = record.get("evaluation")
-        evaluation_passed = bool(isinstance(evaluation, dict) and evaluation.get("passed") is True)
-        if evaluation_passed:
+        rule_assessment = record.get("rule_assessment")
+        rule_assessment_passed = bool(
+            isinstance(rule_assessment, dict) and rule_assessment.get("passed") is True
+        )
+        if rule_assessment_passed:
             passed_runs += 1
 
         suite_id = str(record.get("suite_id", "<unknown>"))
         mode = str(record.get("mode", "<unknown>"))
-        provider_name = str(record.get("provider_name", "<unknown>"))
+        candidate_runtime_name = str(record.get("candidate_runtime_name", "<unknown>"))
 
-        _update_bucket(by_suite[suite_id], evaluation_passed)
-        _update_bucket(by_mode[mode], evaluation_passed)
-        _update_bucket(by_provider[provider_name], evaluation_passed)
+        _update_bucket(by_suite[suite_id], rule_assessment_passed)
+        _update_bucket(by_mode[mode], rule_assessment_passed)
+        _update_bucket(by_candidate_runtime[candidate_runtime_name], rule_assessment_passed)
 
-        judge_evaluation = record.get("judge_evaluation")
-        if isinstance(judge_evaluation, dict):
+        judge_assessment = record.get("judge_assessment")
+        if isinstance(judge_assessment, dict):
             judged_runs += 1
-            judge_passed = judge_evaluation.get("passed") is True
+            judge_passed = judge_assessment.get("passed") is True
             if judge_passed:
                 judge_passed_runs += 1
-            judge_name = str(judge_evaluation.get("judge_name", "<unknown>"))
-            _update_bucket(by_judge[judge_name], judge_passed)
+            judge_name = str(judge_assessment.get("judge_runtime_name", "<unknown>"))
+            _update_bucket(by_judge_runtime[judge_name], judge_passed)
 
-        if isinstance(evaluation, dict):
-            for code in evaluation.get("failure_modes", []):
+        if isinstance(rule_assessment, dict):
+            for code in rule_assessment.get("failure_modes", []):
                 if isinstance(code, str):
                     failure_modes[code] += 1
 
@@ -74,8 +76,8 @@ def summarize_run_artifacts(records: list[dict[str, object]]) -> dict[str, objec
         "judge_pass_rate": _pass_rate(judge_passed_runs, judged_runs),
         "by_suite": _sorted_group_summary(by_suite),
         "by_mode": _sorted_group_summary(by_mode),
-        "by_provider": _sorted_group_summary(by_provider),
-        "by_judge": _sorted_group_summary(by_judge),
+        "by_candidate_runtime": _sorted_group_summary(by_candidate_runtime),
+        "by_judge_runtime": _sorted_group_summary(by_judge_runtime),
         "top_failure_modes": [
             {"code": code, "count": count}
             for code, count in failure_modes.most_common()

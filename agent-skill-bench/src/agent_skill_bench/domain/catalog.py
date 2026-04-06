@@ -1,4 +1,4 @@
-"""Suite, case, and execution-profile models for benchmark runs."""
+"""Benchmark catalog entities and loaders."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ class BenchmarkKind(StrEnum):
 
 
 class EvaluationRuleKind(StrEnum):
-    """Supported generic rule kinds for rule-based evaluation."""
+    """Supported deterministic rule kinds."""
 
     SECTION_NON_EMPTY = "section_non_empty"
     SECTION_MATCHES_REGEX = "section_matches_regex"
@@ -34,36 +34,33 @@ class EvaluationRuleKind(StrEnum):
 
 
 @dataclass(slots=True)
-class BenchmarkJudgeDimension:
+class JudgeDimension:
     """One suite-owned judge dimension."""
 
     name: str
     description: str
 
     @classmethod
-    def from_dict(cls, data: dict[str, object], *, field_name: str) -> "BenchmarkJudgeDimension":
+    def from_dict(cls, data: dict[str, object], *, field_name: str) -> "JudgeDimension":
         """Build one judge dimension from JSON data."""
 
         required = ("name", "description")
         missing = [key for key in required if key not in data]
         if missing:
             raise ValueError(f"{field_name} is missing required keys: {', '.join(missing)}")
-        return cls(
-            name=str(data["name"]),
-            description=str(data["description"]),
-        )
+        return cls(name=str(data["name"]), description=str(data["description"]))
 
 
 @dataclass(slots=True)
-class BenchmarkJudgeProfile:
-    """Suite-owned configuration for model-based judging."""
+class JudgePolicy:
+    """Suite-owned configuration for judge execution."""
 
     name: str
     preamble: list[str] = field(default_factory=list)
     shared_rules: list[str] = field(default_factory=list)
-    dimensions: list[BenchmarkJudgeDimension] = field(default_factory=list)
+    dimensions: list[JudgeDimension] = field(default_factory=list)
     pass_guidance: str | None = None
-    include_rule_evaluation: bool = True
+    include_rule_assessment: bool = True
 
     @classmethod
     def from_dict(
@@ -72,15 +69,12 @@ class BenchmarkJudgeProfile:
         data: dict[str, object],
         *,
         field_name: str,
-    ) -> "BenchmarkJudgeProfile":
-        """Build one judge profile from JSON data."""
+    ) -> "JudgePolicy":
+        """Build one judge policy from JSON data."""
 
         dimension_items = _list_of_dicts(data.get("dimensions", []), f"{field_name}.dimensions")
         dimensions = [
-            BenchmarkJudgeDimension.from_dict(
-                item,
-                field_name=f"{field_name}.dimensions[{index}]",
-            )
+            JudgeDimension.from_dict(item, field_name=f"{field_name}.dimensions[{index}]")
             for index, item in enumerate(dimension_items)
         ]
         if not dimensions:
@@ -92,16 +86,16 @@ class BenchmarkJudgeProfile:
             shared_rules=_string_list(data.get("shared_rules", []), f"{field_name}.shared_rules"),
             dimensions=dimensions,
             pass_guidance=_optional_string(data.get("pass_guidance"), f"{field_name}.pass_guidance"),
-            include_rule_evaluation=_optional_bool(
-                data.get("include_rule_evaluation"),
-                f"{field_name}.include_rule_evaluation",
+            include_rule_assessment=_optional_bool(
+                data.get("include_rule_assessment"),
+                f"{field_name}.include_rule_assessment",
                 default=True,
             ),
         )
 
 
 @dataclass(slots=True)
-class BenchmarkExpectations:
+class ExpectationSet:
     """Evaluation expectations for one benchmark case."""
 
     must_cover: list[str] = field(default_factory=list)
@@ -109,7 +103,7 @@ class BenchmarkExpectations:
     golden_signals: list[str] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, data: dict[str, object] | None) -> "BenchmarkExpectations":
+    def from_dict(cls, data: dict[str, object] | None) -> "ExpectationSet":
         """Build expectations from JSON data."""
 
         payload = data or {}
@@ -135,38 +129,49 @@ class BenchmarkExpectations:
 
 
 @dataclass(slots=True)
-class BenchmarkPromptContract:
+class PromptContract:
     """Suite-level prompt scaffolding for consistent benchmark execution."""
 
     preamble: list[str] = field(default_factory=list)
     shared_rules: list[str] = field(default_factory=list)
+    required_heading_level: int = 2
+    allow_document_title: bool = True
     mode_headings: dict[BenchmarkMode, list[str]] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, data: dict[str, object] | None) -> "BenchmarkPromptContract | None":
+    def from_dict(cls, data: dict[str, object] | None) -> "PromptContract | None":
         """Build a prompt contract from JSON data when present."""
 
         if data is None:
             return None
         if not isinstance(data, dict):
-            raise ValueError("Suite field 'benchmark_prompt' must be an object.")
+            raise ValueError("Suite field 'prompt_contract' must be an object.")
 
         mode_headings_raw = _optional_dict(
             data.get("mode_headings"),
-            "benchmark_prompt.mode_headings",
+            "prompt_contract.mode_headings",
         ) or {}
         mode_headings: dict[BenchmarkMode, list[str]] = {}
         for key, value in mode_headings_raw.items():
             mode_headings[BenchmarkMode(str(key))] = _string_list(
                 value,
-                f"benchmark_prompt.mode_headings.{key}",
+                f"prompt_contract.mode_headings.{key}",
             )
 
         return cls(
-            preamble=_string_list(data.get("preamble", []), "benchmark_prompt.preamble"),
-            shared_rules=_string_list(
-                data.get("shared_rules", []),
-                "benchmark_prompt.shared_rules",
+            preamble=_string_list(data.get("preamble", []), "prompt_contract.preamble"),
+            shared_rules=_string_list(data.get("shared_rules", []), "prompt_contract.shared_rules"),
+            required_heading_level=_optional_int(
+                data.get("required_heading_level"),
+                "prompt_contract.required_heading_level",
+                default=2,
+                minimum=1,
+                maximum=6,
+            ),
+            allow_document_title=_optional_bool(
+                data.get("allow_document_title"),
+                "prompt_contract.allow_document_title",
+                default=True,
             ),
             mode_headings=mode_headings,
         )
@@ -195,15 +200,23 @@ class BenchmarkPromptContract:
         mode_headings = self.mode_headings.get(case.mode, [])
         if mode_headings:
             sections.append(f"Required Output Headings ({case.mode.value}):")
-            sections.extend(f"- {heading}" for heading in mode_headings)
+            if self.allow_document_title:
+                sections.append(
+                    "- Optional title block: one level-1 Markdown title (`# Document Title`), optionally followed by a thematic break (`---`)."
+                )
+            sections.append(
+                f"- Use each required section exactly once as a level-{self.required_heading_level} heading in this order."
+            )
+            heading_prefix = "#" * self.required_heading_level
+            sections.extend(f"- {heading_prefix} {heading}" for heading in mode_headings)
 
         sections.append("Return only the final answer.")
         return "\n\n".join(section for section in sections if section)
 
 
 @dataclass(slots=True)
-class BenchmarkEvaluationRule:
-    """Declarative rule definition owned by one benchmark suite."""
+class EvaluationRule:
+    """Declarative deterministic rule definition owned by one suite."""
 
     code: str
     kind: EvaluationRuleKind
@@ -212,8 +225,8 @@ class BenchmarkEvaluationRule:
     pattern: str | None = None
 
     @classmethod
-    def from_dict(cls, data: dict[str, object], *, field_name: str) -> "BenchmarkEvaluationRule":
-        """Build one declarative evaluation rule from JSON data."""
+    def from_dict(cls, data: dict[str, object], *, field_name: str) -> "EvaluationRule":
+        """Build one deterministic rule from JSON data."""
 
         required = ("code", "kind", "message")
         missing = [key for key in required if key not in data]
@@ -246,13 +259,13 @@ class BenchmarkEvaluationRule:
 
 
 @dataclass(slots=True)
-class BenchmarkEvaluationProfile:
-    """Suite-local rule set selected by a case or suite default."""
+class RuleEvaluationPolicy:
+    """Suite-local deterministic rule set."""
 
     name: str
     forbid_code_fences: bool = True
     require_first_heading: bool = True
-    mode_rules: dict[BenchmarkMode, list[BenchmarkEvaluationRule]] = field(default_factory=dict)
+    mode_rules: dict[BenchmarkMode, list[EvaluationRule]] = field(default_factory=dict)
 
     @classmethod
     def from_dict(
@@ -261,15 +274,15 @@ class BenchmarkEvaluationProfile:
         data: dict[str, object],
         *,
         field_name: str,
-    ) -> "BenchmarkEvaluationProfile":
-        """Build one evaluation profile from JSON data."""
+    ) -> "RuleEvaluationPolicy":
+        """Build one rule evaluation policy from JSON data."""
 
         mode_rules_raw = _optional_dict(data.get("mode_rules"), f"{field_name}.mode_rules") or {}
-        mode_rules: dict[BenchmarkMode, list[BenchmarkEvaluationRule]] = {}
+        mode_rules: dict[BenchmarkMode, list[EvaluationRule]] = {}
         for mode_name, raw_rules in mode_rules_raw.items():
             rule_items = _list_of_dicts(raw_rules, f"{field_name}.mode_rules.{mode_name}")
             mode_rules[BenchmarkMode(str(mode_name))] = [
-                BenchmarkEvaluationRule.from_dict(
+                EvaluationRule.from_dict(
                     rule,
                     field_name=f"{field_name}.mode_rules.{mode_name}[{index}]",
                 )
@@ -278,10 +291,49 @@ class BenchmarkEvaluationProfile:
 
         return cls(
             name=name,
-            forbid_code_fences=_optional_bool(data.get("forbid_code_fences"), f"{field_name}.forbid_code_fences", default=True),
-            require_first_heading=_optional_bool(data.get("require_first_heading"), f"{field_name}.require_first_heading", default=True),
+            forbid_code_fences=_optional_bool(
+                data.get("forbid_code_fences"),
+                f"{field_name}.forbid_code_fences",
+                default=True,
+            ),
+            require_first_heading=_optional_bool(
+                data.get("require_first_heading"),
+                f"{field_name}.require_first_heading",
+                default=True,
+            ),
             mode_rules=mode_rules,
         )
+
+
+@dataclass(slots=True)
+class RepoTarget:
+    """Repository-relative execution target for repo-aware cases."""
+
+    path: str
+    working_dir: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, object], *, field_name: str) -> "RepoTarget":
+        """Build one repo target from JSON data."""
+
+        path = _optional_string(data.get("path"), f"{field_name}.path")
+        working_dir = _optional_string(data.get("working_dir"), f"{field_name}.working_dir")
+        if path is None:
+            raise ValueError(f"{field_name} requires 'path'.")
+        return cls(path=path, working_dir=working_dir)
+
+    def resolve_root(self, base_dir: Path) -> Path:
+        """Resolve the repo root relative to a case file."""
+
+        return _resolve_path(base_dir, self.path)
+
+    def resolve_working_dir_path(self, base_dir: Path) -> Path:
+        """Resolve the effective working directory."""
+
+        repo_root = self.resolve_root(base_dir)
+        if self.working_dir is None:
+            return repo_root
+        return (repo_root / self.working_dir).resolve()
 
 
 @dataclass(slots=True)
@@ -293,15 +345,14 @@ class BenchmarkCase:
     title: str
     mode: BenchmarkMode
     prompt: str
-    expectations: BenchmarkExpectations = field(default_factory=BenchmarkExpectations)
+    expectations: ExpectationSet = field(default_factory=ExpectationSet)
     context: list[str] = field(default_factory=list)
     context_files: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
-    repo_path: str | None = None
-    cwd: str | None = None
-    execution_profile: str | None = None
-    evaluation_profile: str | None = None
-    judge_profile: str | None = None
+    repo_target: RepoTarget | None = None
+    execution_policy_name: str | None = None
+    rule_policy_name: str | None = None
+    judge_policy_name: str | None = None
     skill_paths: list[str] = field(default_factory=list)
     source_path: Path | None = None
 
@@ -309,7 +360,7 @@ class BenchmarkCase:
     def kind(self) -> BenchmarkKind:
         """Return the effective execution kind for the case."""
 
-        return BenchmarkKind.REPO if self.repo_path is not None else BenchmarkKind.PROMPT
+        return BenchmarkKind.REPO if self.repo_target is not None else BenchmarkKind.PROMPT
 
     @classmethod
     def from_dict(cls, data: dict[str, object], *, source_path: Path | None = None) -> "BenchmarkCase":
@@ -320,10 +371,7 @@ class BenchmarkCase:
         if missing:
             raise ValueError(f"Case is missing required keys: {', '.join(missing)}")
 
-        repo_path = _optional_string(data.get("repo_path"), "repo_path")
-        cwd = _optional_string(data.get("cwd"), "cwd")
-        if cwd is not None and repo_path is None:
-            raise ValueError("Case field 'cwd' requires 'repo_path'.")
+        repo_target_raw = _optional_dict(data.get("repo"), "repo")
 
         return cls(
             schema_version=int(data["schema_version"]),
@@ -331,15 +379,27 @@ class BenchmarkCase:
             title=str(data["title"]),
             mode=BenchmarkMode(str(data["mode"])),
             prompt=str(data["prompt"]),
-            expectations=BenchmarkExpectations.from_dict(_dict_value(data.get("expectations"), "expectations")),
+            expectations=ExpectationSet.from_dict(_dict_value(data.get("expectations"), "expectations")),
             context=_string_list(data.get("context", []), "context"),
             context_files=_string_list(data.get("context_files", []), "context_files"),
             tags=_string_list(data.get("tags", []), "tags"),
-            repo_path=repo_path,
-            cwd=cwd,
-            execution_profile=_optional_string(data.get("execution_profile"), "execution_profile"),
-            evaluation_profile=_optional_string(data.get("evaluation_profile"), "evaluation_profile"),
-            judge_profile=_optional_string(data.get("judge_profile"), "judge_profile"),
+            repo_target=(
+                RepoTarget.from_dict(repo_target_raw, field_name="repo")
+                if repo_target_raw is not None
+                else None
+            ),
+            execution_policy_name=_optional_string(
+                data.get("execution_policy"),
+                "execution_policy",
+            ),
+            rule_policy_name=_optional_string(
+                data.get("rule_policy"),
+                "rule_policy",
+            ),
+            judge_policy_name=_optional_string(
+                data.get("judge_policy"),
+                "judge_policy",
+            ),
             skill_paths=_string_list(data.get("skill_paths", []), "skill_paths"),
             source_path=source_path,
         )
@@ -380,21 +440,20 @@ class BenchmarkCase:
     def resolve_repo_root(self) -> Path | None:
         """Resolve the repo root for repo-aware cases."""
 
-        if self.repo_path is None:
+        if self.repo_target is None:
             return None
         if self.source_path is None:
             raise ValueError("Cannot resolve repo paths without source_path.")
-        return _resolve_path(self.source_path.parent, self.repo_path)
+        return self.repo_target.resolve_root(self.source_path.parent)
 
     def resolve_working_dir(self) -> Path | None:
         """Resolve the effective working directory for repo-aware cases."""
 
-        repo_root = self.resolve_repo_root()
-        if repo_root is None:
+        if self.repo_target is None:
             return None
-        if self.cwd is None:
-            return repo_root
-        return (repo_root / self.cwd).resolve()
+        if self.source_path is None:
+            raise ValueError("Cannot resolve repo paths without source_path.")
+        return self.repo_target.resolve_working_dir_path(self.source_path.parent)
 
 
 @dataclass(slots=True)
@@ -405,24 +464,19 @@ class BenchmarkSuite:
     suite_id: str
     title: str
     default_skills: list[str] = field(default_factory=list)
-    default_execution_profile: str = "isolated_prompt"
-    default_evaluation_profile: str | None = None
-    default_judge_profile: str | None = None
-    evaluation_profiles: dict[str, BenchmarkEvaluationProfile] = field(default_factory=dict)
-    judge_profiles: dict[str, BenchmarkJudgeProfile] = field(default_factory=dict)
-    benchmark_prompt: BenchmarkPromptContract | None = None
+    default_execution_policy: str = "isolated_prompt"
+    default_rule_policy: str | None = None
+    default_judge_policy: str | None = None
+    rule_policies: dict[str, RuleEvaluationPolicy] = field(default_factory=dict)
+    judge_policies: dict[str, JudgePolicy] = field(default_factory=dict)
+    prompt_contract: PromptContract | None = None
     source_path: Path | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, object], *, source_path: Path | None = None) -> "BenchmarkSuite":
         """Build and validate a benchmark suite manifest."""
 
-        required = (
-            "schema_version",
-            "suite_id",
-            "title",
-            "default_execution_profile",
-        )
+        required = ("schema_version", "suite_id", "title", "default_execution_policy")
         missing = [key for key in required if key not in data]
         if missing:
             raise ValueError(f"Suite manifest is missing required keys: {', '.join(missing)}")
@@ -432,23 +486,23 @@ class BenchmarkSuite:
             suite_id=str(data["suite_id"]),
             title=str(data["title"]),
             default_skills=_string_list(data.get("default_skills", []), "default_skills"),
-            default_execution_profile=str(data["default_execution_profile"]),
-            default_evaluation_profile=_optional_string(
-                data.get("default_evaluation_profile"),
-                "default_evaluation_profile",
+            default_execution_policy=str(data["default_execution_policy"]),
+            default_rule_policy=_optional_string(
+                data.get("default_rule_policy"),
+                "default_rule_policy",
             ),
-            default_judge_profile=_optional_string(
-                data.get("default_judge_profile"),
-                "default_judge_profile",
+            default_judge_policy=_optional_string(
+                data.get("default_judge_policy"),
+                "default_judge_policy",
             ),
-            evaluation_profiles=_evaluation_profiles(
-                _optional_dict(data.get("evaluation_profiles"), "evaluation_profiles") or {}
+            rule_policies=_rule_policies(
+                _optional_dict(data.get("rule_policies"), "rule_policies") or {}
             ),
-            judge_profiles=_judge_profiles(
-                _optional_dict(data.get("judge_profiles"), "judge_profiles") or {}
+            judge_policies=_judge_policies(
+                _optional_dict(data.get("judge_policies"), "judge_policies") or {}
             ),
-            benchmark_prompt=BenchmarkPromptContract.from_dict(
-                _optional_dict(data.get("benchmark_prompt"), "benchmark_prompt")
+            prompt_contract=PromptContract.from_dict(
+                _optional_dict(data.get("prompt_contract"), "prompt_contract")
             ),
             source_path=source_path,
         )
@@ -461,136 +515,31 @@ class BenchmarkSuite:
         base_dir = self.source_path.parent
         return [_resolve_path(base_dir, relative_path) for relative_path in self.default_skills]
 
-    def resolve_evaluation_profile(
-        self,
-        name: str | None,
-    ) -> BenchmarkEvaluationProfile | None:
-        """Resolve an evaluation profile from suite-local definitions."""
+    def resolve_rule_policy(self, name: str | None) -> RuleEvaluationPolicy | None:
+        """Resolve a rule policy from suite-local definitions."""
 
         if name is None:
             return None
         try:
-            return self.evaluation_profiles[name]
+            return self.rule_policies[name]
         except KeyError as exc:
-            available = ", ".join(sorted(self.evaluation_profiles)) or "<none>"
+            available = ", ".join(sorted(self.rule_policies)) or "<none>"
             raise ValueError(
-                f"Unknown evaluation profile {name!r} for suite {self.suite_id!r}. Available: {available}"
+                f"Unknown rule policy {name!r} for suite {self.suite_id!r}. Available: {available}"
             ) from exc
 
-    def resolve_judge_profile(
-        self,
-        name: str | None,
-    ) -> BenchmarkJudgeProfile | None:
-        """Resolve a judge profile from suite-local definitions."""
+    def resolve_judge_policy(self, name: str | None) -> JudgePolicy | None:
+        """Resolve a judge policy from suite-local definitions."""
 
         if name is None:
             return None
         try:
-            return self.judge_profiles[name]
+            return self.judge_policies[name]
         except KeyError as exc:
-            available = ", ".join(sorted(self.judge_profiles)) or "<none>"
+            available = ", ".join(sorted(self.judge_policies)) or "<none>"
             raise ValueError(
-                f"Unknown judge profile {name!r} for suite {self.suite_id!r}. Available: {available}"
+                f"Unknown judge policy {name!r} for suite {self.suite_id!r}. Available: {available}"
             ) from exc
-
-
-@dataclass(frozen=True, slots=True)
-class ExecutionProfile:
-    """Execution policy for running one benchmark case."""
-
-    name: str
-    use_temp_cwd: bool
-    copy_repo_to_temp: bool
-    setting_sources: tuple[str, ...]
-    allowed_tools: tuple[str, ...]
-    max_turns: int | None
-    timeout_seconds: float | None
-
-
-BUILTIN_EXECUTION_PROFILES: dict[str, ExecutionProfile] = {
-    "isolated_prompt": ExecutionProfile(
-        name="isolated_prompt",
-        use_temp_cwd=True,
-        copy_repo_to_temp=True,
-        setting_sources=("project", "local"),
-        allowed_tools=(),
-        max_turns=1,
-        timeout_seconds=180.0,
-    ),
-    "isolated_repo_copy": ExecutionProfile(
-        name="isolated_repo_copy",
-        use_temp_cwd=False,
-        copy_repo_to_temp=True,
-        setting_sources=("project", "local"),
-        allowed_tools=(),
-        max_turns=1,
-        timeout_seconds=180.0,
-    ),
-}
-
-
-@dataclass(slots=True)
-class ResolvedBenchmarkCase:
-    """Fully resolved benchmark case ready for provider execution."""
-
-    suite: BenchmarkSuite
-    case: BenchmarkCase
-    execution_profile: ExecutionProfile
-    skill_paths: list[Path] = field(default_factory=list)
-    evaluation_profile: str | None = None
-    judge_profile: str | None = None
-
-    @property
-    def id(self) -> str:
-        """Return the case id."""
-
-        return self.case.id
-
-    @property
-    def suite_id(self) -> str:
-        """Return the suite id."""
-
-        return self.suite.suite_id
-
-    @property
-    def mode(self) -> BenchmarkMode:
-        """Return the case mode."""
-
-        return self.case.mode
-
-    @property
-    def kind(self) -> BenchmarkKind:
-        """Return the case kind."""
-
-        return self.case.kind
-
-    @property
-    def source_path(self) -> Path | None:
-        """Return the case source path."""
-
-        return self.case.source_path
-
-    def render_prompt(self) -> str:
-        """Render the full prompt for execution."""
-
-        if self.suite.benchmark_prompt is not None:
-            return self.suite.benchmark_prompt.render(self.case)
-        return self.case.render_prompt()
-
-    def resolve_working_dir(self) -> Path | None:
-        """Return the working directory for repo-aware cases."""
-
-        return self.case.resolve_working_dir()
-
-
-def get_execution_profile(name: str) -> ExecutionProfile:
-    """Return a built-in execution profile by name."""
-
-    try:
-        return BUILTIN_EXECUTION_PROFILES[name]
-    except KeyError as exc:
-        available = ", ".join(sorted(BUILTIN_EXECUTION_PROFILES))
-        raise ValueError(f"Unknown execution profile {name!r}. Available: {available}") from exc
 
 
 def load_case(path: str | Path) -> BenchmarkCase:
@@ -617,44 +566,6 @@ def load_suite_for_case(case_path: str | Path) -> BenchmarkSuite:
     if not suite_path.is_file():
         raise FileNotFoundError(f"Missing suite manifest for case {case_file}: {suite_path}")
     return load_suite(suite_path)
-
-
-def resolve_case(
-    path: str | Path,
-    *,
-    skill_paths: list[Path] | None = None,
-    no_skills: bool = False,
-    execution_profile_name: str | None = None,
-    judge_profile_name: str | None = None,
-) -> ResolvedBenchmarkCase:
-    """Resolve suite defaults and case data into one executable case."""
-
-    case = load_case(path)
-    suite = load_suite_for_case(path)
-    profile_name = execution_profile_name or case.execution_profile or suite.default_execution_profile
-    execution_profile = get_execution_profile(profile_name)
-    evaluation_profile = case.evaluation_profile or suite.default_evaluation_profile
-    resolved_judge_profile = judge_profile_name or case.judge_profile or suite.default_judge_profile
-
-    resolved_skill_paths: list[Path]
-    if no_skills:
-        resolved_skill_paths = []
-    elif skill_paths:
-        resolved_skill_paths = [path.resolve() for path in skill_paths]
-    else:
-        resolved_skill_paths = suite.resolve_default_skills()
-
-    if case.skill_paths:
-        resolved_skill_paths.extend(case.resolve_skill_paths())
-
-    return ResolvedBenchmarkCase(
-        suite=suite,
-        case=case,
-        execution_profile=execution_profile,
-        skill_paths=resolved_skill_paths,
-        evaluation_profile=evaluation_profile,
-        judge_profile=resolved_judge_profile,
-    )
 
 
 def _string_list(value: object, field_name: str) -> list[str]:
@@ -701,6 +612,27 @@ def _optional_bool(value: object, field_name: str, *, default: bool) -> bool:
     return value
 
 
+def _optional_int(
+    value: object,
+    field_name: str,
+    *,
+    default: int,
+    minimum: int | None = None,
+    maximum: int | None = None,
+) -> int:
+    """Validate optional integer fields."""
+
+    if value is None:
+        return default
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ValueError(f"Field {field_name!r} must be an integer when present.")
+    if minimum is not None and value < minimum:
+        raise ValueError(f"Field {field_name!r} must be >= {minimum}.")
+    if maximum is not None and value > maximum:
+        raise ValueError(f"Field {field_name!r} must be <= {maximum}.")
+    return value
+
+
 def _list_of_dicts(value: object, field_name: str) -> list[dict[str, object]]:
     """Validate list[object] where every element is a JSON object."""
 
@@ -712,30 +644,30 @@ def _list_of_dicts(value: object, field_name: str) -> list[dict[str, object]]:
     return items
 
 
-def _evaluation_profiles(value: dict[str, object]) -> dict[str, BenchmarkEvaluationProfile]:
-    """Parse suite-local evaluation profile definitions."""
+def _rule_policies(value: dict[str, object]) -> dict[str, RuleEvaluationPolicy]:
+    """Parse suite-local rule policy definitions."""
 
-    profiles: dict[str, BenchmarkEvaluationProfile] = {}
+    policies: dict[str, RuleEvaluationPolicy] = {}
     for name, payload in value.items():
-        profiles[str(name)] = BenchmarkEvaluationProfile.from_dict(
+        policies[str(name)] = RuleEvaluationPolicy.from_dict(
             str(name),
-            _dict_value(payload, f"evaluation_profiles.{name}"),
-            field_name=f"evaluation_profiles.{name}",
+            _dict_value(payload, f"rule_policies.{name}"),
+            field_name=f"rule_policies.{name}",
         )
-    return profiles
+    return policies
 
 
-def _judge_profiles(value: dict[str, object]) -> dict[str, BenchmarkJudgeProfile]:
-    """Parse suite-local judge profile definitions."""
+def _judge_policies(value: dict[str, object]) -> dict[str, JudgePolicy]:
+    """Parse suite-local judge policy definitions."""
 
-    profiles: dict[str, BenchmarkJudgeProfile] = {}
+    policies: dict[str, JudgePolicy] = {}
     for name, payload in value.items():
-        profiles[str(name)] = BenchmarkJudgeProfile.from_dict(
+        policies[str(name)] = JudgePolicy.from_dict(
             str(name),
-            _dict_value(payload, f"judge_profiles.{name}"),
-            field_name=f"judge_profiles.{name}",
+            _dict_value(payload, f"judge_policies.{name}"),
+            field_name=f"judge_policies.{name}",
         )
-    return profiles
+    return policies
 
 
 def _resolve_path(base_dir: Path, path_value: str) -> Path:

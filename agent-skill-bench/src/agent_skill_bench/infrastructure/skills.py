@@ -1,4 +1,4 @@
-"""Shared helpers for provider-side skill materialization."""
+"""Shared helpers for skill materialization."""
 
 from __future__ import annotations
 

@@ -1,33 +1,34 @@
-"""Judge tests."""
+"""Judge runtime tests."""
 
 from agent_skill_bench import (
     BenchmarkCase,
-    BenchmarkEvaluation,
     BenchmarkMode,
-    BenchmarkRunner,
+    BenchmarkService,
     BenchmarkSuite,
     EvaluationCheck,
-    MockBenchmarkJudge,
-    ResolvedBenchmarkCase,
-    get_execution_profile,
-    get_judge,
+    JudgeTask,
+    MockAgentRuntime,
+    ResolvedCase,
+    RuleAssessment,
+    default_judge_policy,
+    get_execution_policy,
+    get_runtime,
 )
-from agent_skill_bench.providers import ProviderRunResponse
 
 
-def test_get_judge_returns_mock_judge():
-    judge = get_judge("mock")
+def test_get_runtime_returns_mock_runtime_for_judging():
+    runtime = get_runtime("mock")
 
-    assert isinstance(judge, MockBenchmarkJudge)
+    assert isinstance(runtime, MockAgentRuntime)
 
 
-def test_mock_judge_uses_rule_evaluation_to_score_dimensions():
-    case = ResolvedBenchmarkCase(
+def test_mock_runtime_uses_rule_assessment_to_score_dimensions():
+    case = ResolvedCase(
         suite=BenchmarkSuite(
             schema_version=1,
             suite_id="uiux",
             title="UIUX",
-            default_execution_profile="isolated_prompt",
+            default_execution_policy="isolated_prompt",
         ),
         case=BenchmarkCase(
             schema_version=1,
@@ -36,10 +37,10 @@ def test_mock_judge_uses_rule_evaluation_to_score_dimensions():
             mode=BenchmarkMode.GENERATE,
             prompt="Generate a page.",
         ),
-        execution_profile=get_execution_profile("isolated_prompt"),
+        execution_policy=get_execution_policy("isolated_prompt"),
     )
-    rule_evaluation = BenchmarkEvaluation(
-        profile="uiux-default",
+    rule_assessment = RuleAssessment(
+        policy="uiux-default",
         passed=False,
         contract_checks=[
             EvaluationCheck(code="a", passed=True, message="ok"),
@@ -51,13 +52,19 @@ def test_mock_judge_uses_rule_evaluation_to_score_dimensions():
         failure_modes=["b"],
     )
 
-    judge_result = MockBenchmarkJudge().evaluate_case(
-        case,
-        output_text="hello",
-        rule_evaluation=rule_evaluation,
+    judge_result = BenchmarkService(
+        MockAgentRuntime(),
+        judge_runtime=MockAgentRuntime(),
+    ).run_judge(
+        JudgeTask(
+            case=case,
+            candidate_output="hello",
+            rule_assessment=rule_assessment,
+            judge_policy=default_judge_policy(),
+        )
     )
 
-    assert judge_result.judge_name == "mock"
+    assert judge_result.judge_runtime_name == "mock"
     assert judge_result.passed is False
     assert [dimension.name for dimension in judge_result.dimensions] == [
         "contract_adherence",
@@ -65,4 +72,3 @@ def test_mock_judge_uses_rule_evaluation_to_score_dimensions():
     ]
     assert judge_result.dimensions[0].score == 1
     assert judge_result.dimensions[1].score == 3
-

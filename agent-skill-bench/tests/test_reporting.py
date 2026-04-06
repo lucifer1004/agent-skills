@@ -16,28 +16,28 @@ def test_summarize_run_artifacts_groups_pass_fail_counts(tmp_path: Path):
                 {
                     "case_id": "uiux.generate.one",
                     "suite_id": "uiux",
-                    "provider_name": "mock",
+                    "candidate_runtime_name": "mock",
                     "mode": "Generate",
-                    "evaluation": {"passed": True, "failure_modes": []},
-                    "judge_evaluation": {"judge_name": "mock", "passed": True},
+                    "rule_assessment": {"passed": True, "failure_modes": []},
+                    "judge_assessment": {"judge_runtime_name": "mock", "passed": True},
                 },
                 {
                     "case_id": "uiux.review.one",
                     "suite_id": "uiux",
-                    "provider_name": "claude",
+                    "candidate_runtime_name": "claude",
                     "mode": "Review",
-                    "evaluation": {
+                    "rule_assessment": {
                         "passed": False,
                         "failure_modes": ["required_headings_present", "no_code_fences"],
                     },
-                    "judge_evaluation": {"judge_name": "mock", "passed": False},
+                    "judge_assessment": {"judge_runtime_name": "mock", "passed": False},
                 },
                 {
                     "case_id": "pixi.generate.one",
                     "suite_id": "pixi",
-                    "provider_name": "mock",
+                    "candidate_runtime_name": "mock",
                     "mode": "Generate",
-                    "evaluation": {"passed": False, "failure_modes": ["no_code_fences"]},
+                    "rule_assessment": {"passed": False, "failure_modes": ["no_code_fences"]},
                 },
             ]
         ),
@@ -58,5 +58,7 @@ def test_summarize_run_artifacts_groups_pass_fail_counts(tmp_path: Path):
     assert summary["by_suite"][0]["failed"] == 1
     assert summary["by_suite"][1]["key"] == "uiux"
     assert summary["by_suite"][1]["passed"] == 1
-    assert summary["by_judge"] == [{"key": "mock", "total": 2, "passed": 1, "failed": 1, "pass_rate": 0.5}]
+    assert summary["by_judge_runtime"] == [
+        {"key": "mock", "total": 2, "passed": 1, "failed": 1, "pass_rate": 0.5}
+    ]
     assert summary["top_failure_modes"][0] == {"code": "no_code_fences", "count": 2}

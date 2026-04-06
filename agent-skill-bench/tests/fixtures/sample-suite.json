@@ -5,10 +5,10 @@
   "default_skills": [
     "../fixtures-skills/uiux"
   ],
-  "default_execution_profile": "isolated_prompt",
-  "default_evaluation_profile": "uiux-default",
-  "default_judge_profile": "uiux-judge",
-  "evaluation_profiles": {
+  "default_execution_policy": "isolated_prompt",
+  "default_rule_policy": "uiux-default",
+  "default_judge_policy": "uiux-judge",
+  "rule_policies": {
     "uiux-default": {
       "forbid_code_fences": true,
       "require_first_heading": true,
@@ -31,7 +31,7 @@
       }
     }
   },
-  "judge_profiles": {
+  "judge_policies": {
     "uiux-judge": {
       "preamble": [
         "You are judging one benchmark output for a UI/UX skill."
@@ -58,10 +58,10 @@
         }
       ],
       "pass_guidance": "Set passed=true only if the output is strong enough to be used as a benchmark-quality answer.",
-      "include_rule_evaluation": true
+      "include_rule_assessment": true
     }
   },
-  "benchmark_prompt": {
+  "prompt_contract": {
     "preamble": [
       "You are being benchmarked on a UI/UX skill."
     ],
