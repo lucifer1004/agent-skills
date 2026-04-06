@@ -24,6 +24,7 @@ from .fixtures import (
 from .reporting import load_run_artifacts, summarize_run_artifacts
 from .judges import (
     BenchmarkJudge,
+    CodexCLIJudge,
     JudgeDimensionScore,
     JudgeEvaluation,
     MockBenchmarkJudge,
@@ -49,6 +50,7 @@ __all__ = [
     "BenchmarkSuite",
     "ExecutionProfile",
     "EvaluationCheck",
+    "CodexCLIJudge",
     "get_judge",
     "ResolvedBenchmarkCase",
     "JudgeDimensionScore",

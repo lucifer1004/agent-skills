@@ -3,13 +3,19 @@
 from pathlib import Path
 
 from agent_skill_bench import BenchmarkCase, BenchmarkMode, BenchmarkSuite, ResolvedBenchmarkCase, get_execution_profile
-from agent_skill_bench.providers import MockBenchmarkProvider, get_provider
+from agent_skill_bench.providers import CodexCLIProvider, MockBenchmarkProvider, get_provider
 
 
 def test_get_provider_returns_mock_provider():
     provider = get_provider("mock")
 
     assert isinstance(provider, MockBenchmarkProvider)
+
+
+def test_get_provider_returns_codex_provider():
+    provider = get_provider("codex")
+
+    assert isinstance(provider, CodexCLIProvider)
 
 
 def test_mock_provider_returns_deterministic_output():

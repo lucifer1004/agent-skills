@@ -40,7 +40,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             timeout_seconds=args.timeout_seconds,
             cli_path=args.cli_path,
         )
-        judge = get_judge(args.judge) if args.judge else None
+        judge = (
+            get_judge(
+                args.judge,
+                cli_path=args.cli_path,
+                timeout_seconds=args.timeout_seconds,
+            )
+            if args.judge
+            else None
+        )
         runner = BenchmarkRunner(provider, judge=judge)
         case_paths = _resolve_case_paths(args.root, args.case)
         config = BenchmarkRunConfig(

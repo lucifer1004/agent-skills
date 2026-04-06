@@ -222,6 +222,19 @@ def _summarize_skill_binding(
             usage_confirmed=None,
         )
 
+    binding_mode = metadata.get("skill_binding_mode")
+    if injected_skills and binding_mode == "workspace_agents":
+        return SkillBindingSummary(
+            requested_skills=requested_skills,
+            injected_skills=injected_skills,
+            registration_status="materialized",
+            registration_confirmed=None,
+            registration_evidence=str(
+                metadata.get("skill_binding_evidence", "provider_metadata.workspace_agents")
+            ),
+            usage_confirmed=None,
+        )
+
     if injected_skills:
         return SkillBindingSummary(
             requested_skills=requested_skills,

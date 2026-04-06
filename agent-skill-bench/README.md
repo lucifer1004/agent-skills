@@ -61,6 +61,7 @@ Typical commands:
 - `pixi run bench -- --help`
 - `pixi run bench -- report path/to/run.json`
 - `pixi run bench -- run --provider mock --judge mock --case path/to/case.json`
+- `pixi run bench -- run --provider codex --case path/to/case.json`
 
 Benchmark runs can also inject explicit skills instead of inheriting whatever is installed in the user's Claude environment:
 
@@ -68,6 +69,8 @@ Benchmark runs can also inject explicit skills instead of inheriting whatever is
 - or pass one or more `--skill /path/to/skill-or-SKILL.md` flags at runtime
 
 For Claude runs, injected skills are copied into the isolated local skill directory under the benchmark working directory, so only explicitly declared skills participate in the run.
+
+For Codex runs, injected skills are copied into the isolated benchmark workspace and materialized into a generated [AGENTS.md](/Users/zihuaw/Workspace/agent-skills/AGENTS.md)-style harness file in that workspace. This keeps the binding explicit and local to the benchmark run.
 
 Each saved run artifact now distinguishes three different states:
 
