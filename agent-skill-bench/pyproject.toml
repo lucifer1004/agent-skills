@@ -11,7 +11,7 @@ license = { text = "MIT" }
 authors = [
   { name = "Zihua Wu", email = "13583761+lucifer1004@users.noreply.github.com" },
 ]
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.11"
 dependencies = [
   "claude-agent-sdk>=0.1.48",
 ]

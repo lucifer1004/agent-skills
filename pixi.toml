@@ -6,7 +6,7 @@ platforms = ["osx-arm64", "linux-64"]
 preview = ["pixi-build"]
 
 [dependencies]
-python = ">=3.12,<3.13"
+python = ">=3.11"
 pytest = ">=9"
 agent-skill-bench = { path = "agent-skill-bench" }
 

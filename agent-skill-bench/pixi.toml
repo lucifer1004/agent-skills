@@ -9,4 +9,4 @@ backend = { name = "pixi-build-python", version = "*", channels = ["https://pref
 hatchling = "*"
 
 [package.run-dependencies]
-python = ">=3.12,<3.13"
+python = ">=3.11"
