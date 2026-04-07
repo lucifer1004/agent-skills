@@ -1,0 +1,17 @@
+#:schema ../../../schema/clause.schema.json
+
+[govctl]
+id = "C-RUN-MATCHING"
+title = "Run matching and deltas"
+kind = "normative"
+status = "active"
+since = "0.1.0"
+
+[content]
+text = """
+A comparison implementation MUST match runs across the baseline and candidate sets by benchmark identity, meaning the suite and case represented by each artifact.
+A comparison implementation MUST treat unmatched runs as explicit additions or removals rather than silently dropping them.
+If either input set contains multiple artifacts for the same benchmark identity, the comparison implementation MUST fail clearly or otherwise report the ambiguity explicitly; it MUST NOT choose one arbitrarily.
+For matched runs, the comparison implementation MUST be able to surface changes in deterministic pass/fail status, candidate runtime outcome, judge runtime outcome when present, and deterministic failure-mode codes.
+
+**Rationale:** regression comparison is only meaningful when both sides refer to the same benchmark case. Silent duplicate resolution or silent dropping of unmatched runs would make diffs look cleaner while hiding the very regressions or coverage gaps the user is trying to inspect."""

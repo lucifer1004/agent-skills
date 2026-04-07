@@ -54,7 +54,7 @@ from .infrastructure import (
     CodexCLIAgentRuntime,
     MockAgentRuntime,
 )
-from .reporting import load_run_artifacts, summarize_run_artifacts
+from .reporting import compare_run_artifacts, load_run_artifacts, summarize_run_artifacts
 
 __all__ = [
     "__version__",
@@ -91,6 +91,7 @@ __all__ = [
     "SkillBindingStatus",
     "build_candidate_run_spec",
     "build_judge_run_spec",
+    "compare_run_artifacts",
     "default_judge_policy",
     "discover_case_files",
     "evaluate_rule_assessment",

@@ -1,0 +1,16 @@
+#:schema ../../../schema/clause.schema.json
+
+[govctl]
+id = "C-SUMMARY"
+title = "Summary"
+kind = "informative"
+status = "active"
+since = "0.1.0"
+
+[content]
+text = """
+This RFC defines how `agent-skill-bench` compares two benchmark artifact sets to surface regressions and improvements.
+
+**Scope:** comparison inputs, run matching semantics, aggregate delta semantics, and required comparison outputs.
+
+**Rationale:** [[RFC-0003]] makes normalized artifacts stable enough to consume, but users still need a first-class way to compare two artifact sets without writing ad hoc scripts around report output."""

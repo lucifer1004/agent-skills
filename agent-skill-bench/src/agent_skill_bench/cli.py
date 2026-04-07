@@ -19,7 +19,7 @@ from .application import (
     save_run_results,
 )
 from .discovery import discover_case_files
-from .reporting import load_run_artifacts, summarize_run_artifacts
+from .reporting import compare_run_artifacts, load_run_artifacts, summarize_run_artifacts
 
 LOG_LEVELS = ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG")
 
@@ -90,6 +90,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         save_artifact_records(reevaluated, output_path)
         print(f"Saved reevaluated benchmark results to {output_path}", file=sys.stderr)
         print(json.dumps(reevaluated, indent=2))
+        return 0
+
+    if args.command == "compare":
+        baseline_records = load_run_artifacts(args.baseline_artifact)
+        candidate_records = load_run_artifacts(args.candidate_artifact)
+        print(json.dumps(compare_run_artifacts(baseline_records, candidate_records), indent=2))
         return 0
 
     parser.error(f"Unknown command: {args.command}")
@@ -213,6 +219,25 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         type=Path,
         help="Exact file path for the saved reevaluation JSON.",
+    )
+
+    compare = subparsers.add_parser(
+        "compare",
+        help="Compare two saved benchmark artifact sets and summarize regressions",
+    )
+    compare.add_argument(
+        "--baseline-artifact",
+        nargs="+",
+        required=True,
+        type=Path,
+        help="Baseline benchmark run JSON artifact(s).",
+    )
+    compare.add_argument(
+        "--candidate-artifact",
+        nargs="+",
+        required=True,
+        type=Path,
+        help="Candidate benchmark run JSON artifact(s).",
     )
 
     return parser

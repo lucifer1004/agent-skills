@@ -1,0 +1,28 @@
+#:schema ../../schema/rfc.schema.json
+
+[govctl]
+id = "RFC-0004"
+title = "Benchmark artifact comparison semantics"
+version = "0.1.0"
+status = "normative"
+phase = "test"
+owners = ["@Gabriel Wu"]
+created = "2026-04-07"
+updated = "2026-04-07"
+
+[[sections]]
+title = "Summary"
+clauses = ["clauses/C-SUMMARY.toml"]
+
+[[sections]]
+title = "Specification"
+clauses = [
+    "clauses/C-COMPARISON-INPUTS.toml",
+    "clauses/C-RUN-MATCHING.toml",
+    "clauses/C-COMPARISON-OUTPUT.toml",
+]
+
+[[changelog]]
+version = "0.1.0"
+date = "2026-04-07"
+notes = "Initial draft"

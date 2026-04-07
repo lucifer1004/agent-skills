@@ -1,0 +1,18 @@
+#:schema ../../../schema/clause.schema.json
+
+[govctl]
+id = "C-COMPARISON-OUTPUT"
+title = "Comparison output semantics"
+kind = "normative"
+status = "active"
+since = "0.1.0"
+
+[content]
+text = """
+A comparison output MUST report aggregate deltas for deterministic pass rate between the baseline and candidate sets.
+A comparison output MUST report aggregate deltas for runtime outcome distributions and deterministic failure-mode distributions between the baseline and candidate sets.
+A comparison output SHOULD include grouped deltas for at least suite and mode so regressions can be localized.
+A comparison output MUST report unmatched benchmark identities separately from matched-run deltas.
+The comparison contract MAY evolve its concrete layout over time, but it MUST preserve those comparison semantics independently of any particular CLI formatting choice.
+
+**Rationale:** users need to see not only whether overall pass rate moved, but also whether the change came from runtime failures, contract failures, or specific benchmark slices. Treating unmatched runs separately keeps aggregate deltas honest when the compared sets cover different case populations."""

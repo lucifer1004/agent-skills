@@ -356,3 +356,61 @@ def test_cli_reevaluate_recomputes_rule_assessment_from_saved_artifact(tmp_path:
     reevaluated = json.loads(output_path.read_text(encoding="utf-8"))
     assert reevaluated[0]["candidate_outcome"]["status"] == "succeeded"
     assert reevaluated[0]["rule_assessment"]["passed"] is True
+
+
+def test_cli_compare_reports_regression_summary(tmp_path: Path, capsys):
+    baseline = tmp_path / "baseline.json"
+    candidate = tmp_path / "candidate.json"
+    baseline.write_text(
+        json.dumps(
+            [
+                {
+                    "case_id": "uiux.generate.one",
+                    "suite_id": "uiux",
+                    "candidate_runtime_name": "mock",
+                    "mode": "Generate",
+                    "candidate_outcome": {"status": "succeeded", "code": None, "summary": None},
+                    "rule_assessment": {"passed": True, "failure_modes": []},
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    candidate.write_text(
+        json.dumps(
+            [
+                {
+                    "case_id": "uiux.generate.one",
+                    "suite_id": "uiux",
+                    "candidate_runtime_name": "mock",
+                    "mode": "Generate",
+                    "candidate_outcome": {
+                        "status": "failed",
+                        "code": "runtime_timeout",
+                        "summary": "timeout",
+                    },
+                    "rule_assessment": {
+                        "passed": False,
+                        "failure_modes": ["starts_with_required_heading"],
+                    },
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        [
+            "compare",
+            "--baseline-artifact",
+            str(baseline),
+            "--candidate-artifact",
+            str(candidate),
+        ]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["aggregate_deltas"]["pass_rate_delta"] == -1.0
+    assert output["matched_run_deltas"][0]["rule_pass_changed"] is True
+    assert output["matched_run_deltas"][0]["candidate_outcome_changed"] is True

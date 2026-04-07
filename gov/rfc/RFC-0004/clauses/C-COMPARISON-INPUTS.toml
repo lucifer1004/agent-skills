@@ -1,0 +1,17 @@
+#:schema ../../../schema/clause.schema.json
+
+[govctl]
+id = "C-COMPARISON-INPUTS"
+title = "Comparison inputs"
+kind = "normative"
+status = "active"
+since = "0.1.0"
+
+[content]
+text = """
+A comparison operation MUST consume exactly two normalized artifact sets, one treated as the baseline set and one treated as the candidate set.
+Both artifact sets MUST be interpreted through the stable artifact semantics defined by [[RFC-0003]] rather than through adapter-specific metadata.
+A comparison implementation MUST reject inputs that cannot be read as normalized artifact sets.
+A comparison implementation MUST preserve the distinction between aggregate summaries derived from each set and deltas computed between those summaries.
+
+**Rationale:** users need a comparison command that operates on stable artifacts, not on whatever runtime-specific evidence happened to be emitted during execution. Keeping baseline summaries separate from computed deltas avoids conflating raw measurements with regression interpretation."""

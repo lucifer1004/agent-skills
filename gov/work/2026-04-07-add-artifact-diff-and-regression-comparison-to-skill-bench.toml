@@ -1,0 +1,67 @@
+#:schema ../schema/work.schema.json
+
+[govctl]
+id = "WI-2026-04-07-003"
+title = "add artifact diff and regression comparison to skill-bench"
+status = "active"
+created = "2026-04-07"
+started = "2026-04-07"
+refs = [
+    "RFC-0003",
+    "RFC-0001",
+    "RFC-0004",
+]
+
+[content]
+description = "Add artifact diff and regression comparison to agent-skill-bench so users can compare two benchmark artifact sets and see pass-rate, runtime-outcome, and failure-mode deltas without external scripts."
+notes = ["Artifact comparison matches runs by suite/case identity only; duplicate identities are rejected explicitly and unmatched runs are reported separately rather than being dropped."]
+
+[[content.journal]]
+date = "2026-04-07"
+scope = "governance"
+content = "Drafted RFC-0004 to govern artifact-set comparison semantics, including baseline/candidate inputs, benchmark-identity matching, unmatched-run handling, and aggregate delta reporting."
+
+[[content.journal]]
+date = "2026-04-07"
+scope = "governance"
+content = "Finalized RFC-0004 to normative and advanced it to impl so artifact comparison behavior is implementation-authorized."
+
+[[content.journal]]
+date = "2026-04-07"
+scope = "implementation"
+content = "Implemented artifact-set comparison logic, compare CLI, and regression summary outputs for pass-rate, runtime outcomes, failure modes, grouped deltas, matched-run deltas, and unmatched runs."
+
+[[content.journal]]
+date = "2026-04-07"
+scope = "verification"
+content = "Validated compare behavior with targeted reporting/CLI tests, full agent-skill-bench pytest, compileall, govctl render/check, and govctl verify."
+
+[[content.journal]]
+date = "2026-04-07"
+scope = "governance"
+content = "Advanced RFC-0004 to test before running real benchmark comparisons."
+
+[[content.journal]]
+date = "2026-04-07"
+scope = "validation"
+content = "Ran a real UIUX ablation with Claude->Codex and --no-skills, then compared it against the existing skill-enabled baseline using the new compare command. Deterministic pass rate dropped from 10/12 to 9/12, while judge pass rate increased from 7/12 to 9/12; all candidate and judge runtime outcomes still succeeded."
+
+[[content.journal]]
+date = "2026-04-07"
+scope = "verification"
+content = "Committed-ready: compare CLI, artifact-set diffing, RFC-0004 governance artifacts, and targeted compare tests are in place; govctl check passes."
+
+[[content.acceptance_criteria]]
+text = "Provide a CLI path that compares two saved benchmark artifact sets and emits normalized regression summaries."
+status = "done"
+category = "added"
+
+[[content.acceptance_criteria]]
+text = "govctl check passes"
+status = "done"
+category = "chore"
+
+[[content.acceptance_criteria]]
+text = "Comparison output highlights pass-rate deltas, runtime-outcome deltas, and deterministic failure-mode deltas across matched benchmark runs."
+status = "done"
+category = "added"
