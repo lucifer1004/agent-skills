@@ -1,0 +1,28 @@
+#:schema ../schema/work.schema.json
+
+[govctl]
+id = "WI-2026-04-07-007"
+title = "fix missing markdown-it dependency in CI"
+status = "done"
+created = "2026-04-07"
+started = "2026-04-07"
+completed = "2026-04-07"
+refs = ["RFC-0001"]
+
+[content]
+description = "Ensure the root Pixi workspace installs agent-skill-bench runtime dependencies needed by the verification guard so CI can import benchmark modules."
+
+[[content.journal]]
+date = "2026-04-07"
+scope = "implementation"
+content = "Added markdown-it-py to the root Pixi PyPI dependencies and refreshed the lockfile so govctl verify installs the markdown_it import required by agent-skill-bench."
+
+[[content.acceptance_criteria]]
+text = "Root workspace dependency resolution includes markdown-it-py so agent-skill-bench imports succeed under govctl verify."
+status = "done"
+category = "fixed"
+
+[[content.acceptance_criteria]]
+text = "govctl check passes"
+status = "done"
+category = "chore"
