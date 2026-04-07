@@ -1,0 +1,27 @@
+#:schema ../schema/work.schema.json
+
+[govctl]
+id = "WI-2026-04-07-006"
+title = "update github workflow versions"
+status = "done"
+created = "2026-04-07"
+started = "2026-04-07"
+completed = "2026-04-07"
+
+[content]
+description = "Refresh root GitHub workflow action pins and workflow-installed dependency versions to their latest stable releases."
+
+[[content.journal]]
+date = "2026-04-07"
+scope = "implementation"
+content = "Updated root verify workflow to actions/checkout v6.0.2, setup-pixi v0.9.4, pixi v0.66.0, and govctl 0.7.7 after checking the latest official release metadata."
+
+[[content.acceptance_criteria]]
+text = "Root GitHub workflows use the latest stable action and workflow dependency versions available at implementation time."
+status = "done"
+category = "added"
+
+[[content.acceptance_criteria]]
+text = "govctl check passes"
+status = "done"
+category = "chore"

@@ -3,9 +3,10 @@
 [govctl]
 id = "WI-2026-04-07-005"
 title = "register claude-skill-typst as a submodule"
-status = "active"
+status = "done"
 created = "2026-04-07"
 started = "2026-04-07"
+completed = "2026-04-07"
 refs = ["ADR-0001"]
 
 [content]
@@ -18,10 +19,10 @@ content = "Registered claude-skill-typst as a root-repository submodule pointing
 
 [[content.acceptance_criteria]]
 text = "Root repository tracks claude-skill-typst as a Git submodule using its GitHub remote."
-status = "pending"
+status = "done"
 category = "added"
 
 [[content.acceptance_criteria]]
 text = "govctl check passes"
-status = "pending"
+status = "done"
 category = "chore"
