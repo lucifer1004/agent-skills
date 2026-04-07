@@ -1,0 +1,27 @@
+#:schema ../schema/work.schema.json
+
+[govctl]
+id = "WI-2026-04-07-005"
+title = "register claude-skill-typst as a submodule"
+status = "active"
+created = "2026-04-07"
+started = "2026-04-07"
+refs = ["ADR-0001"]
+
+[content]
+description = "Reintroduce claude-skill-typst to the root collection repository as a Git submodule pointing at its GitHub remote, preserving the published skill boundary described by ADR-0001."
+
+[[content.journal]]
+date = "2026-04-07"
+scope = "implementation"
+content = "Registered claude-skill-typst as a root-repository submodule pointing at its GitHub origin and removed the local-only ignore rule that prevented root tracking."
+
+[[content.acceptance_criteria]]
+text = "Root repository tracks claude-skill-typst as a Git submodule using its GitHub remote."
+status = "pending"
+category = "added"
+
+[[content.acceptance_criteria]]
+text = "govctl check passes"
+status = "pending"
+category = "chore"

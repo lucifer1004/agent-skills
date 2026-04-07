@@ -6,6 +6,5 @@ __pycache__/
 .agent-skill-bench/
 /agent-skill-uiux/
 /agent-skill-pixi/
-/claude-skill-typst/
 /ui-ux-pro-max-skill/
 .govctl.lock
