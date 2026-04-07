@@ -3,9 +3,10 @@
 [govctl]
 id = "WI-2026-04-07-003"
 title = "add artifact diff and regression comparison to skill-bench"
-status = "active"
+status = "done"
 created = "2026-04-07"
 started = "2026-04-07"
+completed = "2026-04-07"
 refs = [
     "RFC-0003",
     "RFC-0001",
