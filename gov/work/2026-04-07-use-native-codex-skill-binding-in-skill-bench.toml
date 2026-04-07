@@ -1,0 +1,41 @@
+#:schema ../schema/work.schema.json
+
+[govctl]
+id = "WI-2026-04-07-004"
+title = "use native codex skill binding in skill-bench"
+status = "done"
+created = "2026-04-07"
+started = "2026-04-07"
+completed = "2026-04-07"
+refs = [
+    "RFC-0001",
+    "ADR-0003",
+]
+
+[content]
+description = "Replace Codex AGENTS-based skill injection with native Codex skill materialization so skill-bearing benchmark runs measure the same skill mechanism users rely on outside the bench harness."
+
+[[content.journal]]
+date = "2026-04-07"
+scope = "implementation"
+content = "Implemented native Codex skill materialization through isolated CODEX_HOME seeding; removed AGENTS skill inlining; validated targeted and full agent-skill-bench pytest plus compileall. govctl check remains blocked by pre-existing RFC-0004 render drift outside this WI."
+
+[[content.journal]]
+date = "2026-04-07"
+scope = "verification"
+content = "Committed-ready: native Codex skill binding now uses isolated CODEX_HOME materialization; govctl check, full agent-skill-bench pytest, and compileall all pass."
+
+[[content.acceptance_criteria]]
+text = "Codex runtime materializes injected skills through an isolated native Codex home instead of inlining SKILL.md into AGENTS.md"
+status = "done"
+category = "added"
+
+[[content.acceptance_criteria]]
+text = "Codex run artifacts continue to report stable skill-binding semantics after the native binding change"
+status = "done"
+category = "added"
+
+[[content.acceptance_criteria]]
+text = "govctl check passes"
+status = "done"
+category = "chore"

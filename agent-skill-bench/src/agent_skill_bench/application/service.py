@@ -520,7 +520,7 @@ def _summarize_skill_binding(
         )
 
     binding_mode = metadata.get("skill_binding_mode")
-    if injected_skills and binding_mode == "workspace_agents":
+    if injected_skills and binding_mode in {"workspace_agents", "native_codex_home"}:
         return SkillBindingStatus(
             requested_skills=requested_skills,
             injected_skills=injected_skills,

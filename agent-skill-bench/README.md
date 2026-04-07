@@ -71,7 +71,7 @@ Benchmark runs can also inject explicit skills instead of inheriting whatever is
 
 For Claude runs, injected skills are copied into the isolated local skill directory under the benchmark working directory, so only explicitly declared skills participate in the run.
 
-For Codex runs, injected skills are copied into the isolated benchmark workspace and materialized into a generated [AGENTS.md](/Users/zihuaw/Workspace/agent-skills/AGENTS.md)-style harness file in that workspace. This keeps the binding explicit and local to the benchmark run.
+For Codex runs, injected skills are materialized into an isolated native Codex home under `$CODEX_HOME/skills`, while the workspace `AGENTS.md` remains a benchmark harness file only. This keeps the binding explicit and local to the benchmark run without degrading skills into prompt text.
 
 Each saved run artifact now distinguishes three different states:
 

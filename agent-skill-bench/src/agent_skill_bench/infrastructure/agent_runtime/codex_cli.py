@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import json
+import os
 from pathlib import Path
+import shutil
 import subprocess
 from tempfile import TemporaryDirectory
+from typing import ContextManager
+
+from agent_skill_bench.infrastructure.skills import (
+    resolve_skill_directory,
+    skill_dir_name,
+    unique_skill_target,
+)
 
 from ._workspace import PreparedWorkspace, prepare_workspace
 from .base import AgentRunResult, AgentRunSpec, AgentRuntimeError
@@ -28,11 +37,11 @@ class CodexCLIAgentRuntime:
         """Execute one runtime spec with Codex CLI."""
 
         timeout_seconds = self.timeout_seconds or spec.timeout_seconds
+        workspace_spec = replace(spec, skill_paths=[])
         with prepare_workspace(
-            spec,
+            workspace_spec,
             fixed_cwd=self.cwd,
             force_workspace=True,
-            skills_subdir=".agent-skill-bench/skills",
         ) as workspace:
             if workspace.cwd is None:
                 raise AgentRuntimeError(
@@ -41,12 +50,21 @@ class CodexCLIAgentRuntime:
                 )
 
             instructions = _merge_instructions(spec.runtime_instructions, self.instructions)
-            if instructions or workspace.installed_skills:
+            if instructions or spec.skill_paths:
                 _write_agents_file(workspace, instructions)
 
-            with TemporaryDirectory(prefix="agent-skill-bench-codex-") as tmp_dir:
+            # [[RFC-0001:C-RUNTIME-EXECUTION]] skill bindings belong to the runtime layer,
+            # so Codex benchmark skills must be materialized through the native Codex home
+            # rather than downgraded into AGENTS prompt text.
+            with TemporaryDirectory(prefix="agent-skill-bench-codex-") as tmp_dir, _native_codex_home(
+                spec
+            ) as native_codex_home:
                 tmp_path = Path(tmp_dir)
                 output_path = tmp_path / "codex-output.txt"
+                env = os.environ.copy()
+                env.update(workspace.env)
+                if native_codex_home is not None:
+                    env["CODEX_HOME"] = str(native_codex_home.root)
                 cmd = self._build_command(
                     cwd=workspace.cwd,
                     output_path=output_path,
@@ -59,7 +77,7 @@ class CodexCLIAgentRuntime:
                         capture_output=True,
                         text=True,
                         timeout=timeout_seconds,
-                        env=dict(workspace.env) if workspace.env else None,
+                        env=env,
                         input=spec.prompt,
                     )
                 except subprocess.TimeoutExpired as exc:
@@ -96,11 +114,13 @@ class CodexCLIAgentRuntime:
                 }
             )
 
-            if workspace.installed_skills:
-                metadata["injected_skills"] = ",".join(workspace.installed_skills)
-                metadata["injected_skill_count"] = len(workspace.installed_skills)
-                metadata["skill_binding_mode"] = "workspace_agents"
-                metadata["skill_binding_evidence"] = "runtime_metadata.generated_agents"
+            if native_codex_home is not None and native_codex_home.installed_skills:
+                metadata["injected_skills"] = ",".join(native_codex_home.installed_skills)
+                metadata["injected_skill_count"] = len(native_codex_home.installed_skills)
+                metadata["skill_binding_mode"] = "native_codex_home"
+                metadata["skill_binding_evidence"] = "runtime_metadata.codex_home_skills"
+                metadata["codex_home"] = str(native_codex_home.root)
+                metadata["codex_skills_root"] = str(native_codex_home.skills_root)
             if workspace.generated_agents_path is not None:
                 metadata["agents_path"] = str(workspace.generated_agents_path)
 
@@ -165,7 +185,7 @@ def _merge_instructions(*parts: str | None) -> str | None:
 
 
 def _write_agents_file(workspace: PreparedWorkspace, instructions: str | None) -> None:
-    """Materialize a runtime-specific AGENTS.md for Codex."""
+    """Materialize benchmark harness instructions for Codex."""
 
     if workspace.cwd is None:
         raise AgentRuntimeError(
@@ -183,30 +203,6 @@ def _write_agents_file(workspace: PreparedWorkspace, instructions: str | None) -
 
     if instructions:
         lines.extend(["", "## Runtime Instructions", "", instructions])
-
-    skills_root = workspace.cwd / ".agent-skill-bench" / "skills"
-    if workspace.installed_skills:
-        lines.extend(
-            [
-                "",
-                "## Injected Benchmark Skills",
-                "",
-                "The following skills were explicitly injected for this benchmark run.",
-                "Treat their SKILL.md files as authoritative task instructions.",
-            ]
-        )
-        for skill_name in workspace.installed_skills:
-            skill_file = skills_root / skill_name / "SKILL.md"
-            lines.extend(
-                [
-                    "",
-                    f"### Skill: {skill_name}",
-                    "",
-                    f"Skill path: {skill_file}",
-                    "",
-                    skill_file.read_text(encoding="utf-8").strip(),
-                ]
-            )
 
     agents_path = workspace.cwd / "AGENTS.md"
     agents_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
@@ -252,3 +248,98 @@ def _event_usage(events: list[dict[str, object]]) -> dict[str, object] | None:
         if isinstance(usage, dict):
             return usage
     return None
+
+
+@dataclass(slots=True)
+class NativeCodexHome:
+    """One isolated native Codex home prepared for a benchmark run."""
+
+    root: Path
+    skills_root: Path
+    installed_skills: list[str]
+
+
+@dataclass(slots=True)
+class _NullContext:
+    """Small context-manager helper for optional native Codex homes."""
+
+    value: NativeCodexHome | None
+
+    def __enter__(self) -> NativeCodexHome | None:
+        return self.value
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        return None
+
+
+def _native_codex_home(spec: AgentRunSpec) -> ContextManager[NativeCodexHome | None]:
+    """Create an isolated native Codex home when benchmark skills are injected."""
+
+    if not spec.skill_paths:
+        return _NullContext(None)
+    return _CodexHomeContext(spec)
+
+
+class _CodexHomeContext:
+    """Context manager that seeds an isolated Codex home for benchmark skills."""
+
+    def __init__(self, spec: AgentRunSpec) -> None:
+        self._spec = spec
+        self._tmp_dir: TemporaryDirectory[str] | None = None
+
+    def __enter__(self) -> NativeCodexHome:
+        self._tmp_dir = TemporaryDirectory(prefix="agent-skill-bench-codex-home-")
+        root = Path(self._tmp_dir.__enter__())
+        _seed_codex_home(root)
+        skills_root = root / "skills"
+        installed_skills = _install_skills_into_root(self._spec.skill_paths, skills_root)
+        return NativeCodexHome(
+            root=root,
+            skills_root=skills_root,
+            installed_skills=installed_skills,
+        )
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        if self._tmp_dir is not None:
+            self._tmp_dir.__exit__(exc_type, exc, tb)
+            self._tmp_dir = None
+        return None
+
+
+def _seed_codex_home(target_root: Path) -> None:
+    """Seed an isolated Codex home with the minimum persistent user state."""
+
+    source_root = _resolve_codex_home()
+    target_root.mkdir(parents=True, exist_ok=True)
+    for relative_path in ("auth.json", "config.toml"):
+        source_path = source_root / relative_path
+        if source_path.is_file():
+            shutil.copy2(source_path, target_root / relative_path)
+
+
+def _resolve_codex_home() -> Path:
+    """Resolve the user's active Codex home."""
+
+    configured = os.environ.get("CODEX_HOME")
+    if configured:
+        return Path(configured).expanduser()
+    return Path.home() / ".codex"
+
+
+def _install_skills_into_root(skill_paths: list[Path], skills_root: Path) -> list[str]:
+    """Materialize benchmark skills into a native Codex skills directory."""
+
+    skills_root.mkdir(parents=True, exist_ok=True)
+    installed_skills: list[str] = []
+    for index, source_path in enumerate(skill_paths, start=1):
+        try:
+            source_dir = resolve_skill_directory(source_path)
+            target_dir = unique_skill_target(skills_root, skill_dir_name(source_dir, index))
+            shutil.copytree(source_dir, target_dir, dirs_exist_ok=True)
+            installed_skills.append(target_dir.name)
+        except Exception as exc:
+            raise AgentRuntimeError(
+                "workspace_materialization_failure",
+                f"Failed to materialize benchmark skill into native Codex home from {source_path}.",
+            ) from exc
+    return installed_skills

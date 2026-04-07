@@ -70,11 +70,15 @@ def test_codex_runtime_reads_output_last_message_and_usage(monkeypatch):
     assert response.metadata["final_output_source"] == "output_last_message_file"
 
 
-def test_codex_runtime_materializes_skills_into_generated_agents(monkeypatch, tmp_path: Path):
+def test_codex_runtime_materializes_skills_into_native_codex_home(monkeypatch, tmp_path: Path):
     fixture_skill = tmp_path / "fixture-skill"
     fixture_skill.mkdir()
     (fixture_skill / "SKILL.md").write_text("Always use hierarchy first.", encoding="utf-8")
     (fixture_skill / "guide.md").write_text("extra guide", encoding="utf-8")
+    source_codex_home = tmp_path / "source-codex-home"
+    source_codex_home.mkdir()
+    (source_codex_home / "auth.json").write_text('{"test":true}', encoding="utf-8")
+    (source_codex_home / "config.toml").write_text('model = "gpt-5.4"\n', encoding="utf-8")
 
     case = ResolvedCase(
         suite=BenchmarkSuite(
@@ -98,10 +102,14 @@ def test_codex_runtime_materializes_skills_into_generated_agents(monkeypatch, tm
 
     def fake_run(cmd, *, capture_output, text, timeout, env, input):
         cwd = Path(cmd[cmd.index("--cd") + 1])
+        codex_home = Path(env["CODEX_HOME"])
         captured["agents_text"] = (cwd / "AGENTS.md").read_text(encoding="utf-8")
-        captured["skill_file_text"] = (
-            cwd / ".agent-skill-bench" / "skills" / "fixture-skill" / "SKILL.md"
-        ).read_text(encoding="utf-8")
+        captured["skill_file_text"] = (codex_home / "skills" / "fixture-skill" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        captured["codex_home"] = codex_home
+        captured["auth_seeded"] = (codex_home / "auth.json").exists()
+        captured["config_seeded"] = (codex_home / "config.toml").exists()
         output_path = Path(cmd[cmd.index("--output-last-message") + 1])
         output_path.write_text("skill result", encoding="utf-8")
         return SimpleNamespace(
@@ -111,14 +119,18 @@ def test_codex_runtime_materializes_skills_into_generated_agents(monkeypatch, tm
         )
 
     monkeypatch.setattr(codex_runtime_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(codex_runtime_module, "_resolve_codex_home", lambda: source_codex_home)
 
     response = CodexCLIAgentRuntime().run(build_candidate_run_spec(case))
 
-    assert "Injected Benchmark Skills" in captured["agents_text"]
-    assert "Always use hierarchy first." in captured["agents_text"]
+    assert "Injected Benchmark Skills" not in captured["agents_text"]
+    assert "Always use hierarchy first." not in captured["agents_text"]
     assert captured["skill_file_text"] == "Always use hierarchy first."
+    assert captured["codex_home"].name.startswith("agent-skill-bench-codex-home-")
+    assert captured["auth_seeded"] is True
+    assert captured["config_seeded"] is True
     assert response.metadata["injected_skills"] == "fixture-skill"
-    assert response.metadata["skill_binding_mode"] == "workspace_agents"
+    assert response.metadata["skill_binding_mode"] == "native_codex_home"
 
 
 def test_codex_runtime_copies_repo_case_to_temp(monkeypatch, tmp_path: Path):

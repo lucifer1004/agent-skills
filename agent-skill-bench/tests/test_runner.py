@@ -167,6 +167,54 @@ def test_service_marks_skill_registration_from_runtime_metadata(tmp_path: Path):
     assert result.skill_binding.usage_confirmed is None
 
 
+def test_service_marks_native_codex_skill_materialization(tmp_path: Path):
+    skill_dir = tmp_path / "uiux"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("UIUX skill", encoding="utf-8")
+
+    @dataclass
+    class NativeCodexRuntime:
+        name: str = "codex"
+
+        def run(self, spec: AgentRunSpec) -> AgentRunResult:
+            return AgentRunResult(
+                output_text="handled",
+                metadata={
+                    "injected_skills": "uiux",
+                    "skill_binding_mode": "native_codex_home",
+                    "skill_binding_evidence": "runtime_metadata.codex_home_skills",
+                },
+            )
+
+    case = ResolvedCase(
+        suite=BenchmarkSuite(
+            schema_version=1,
+            suite_id="uiux",
+            title="UIUX",
+            default_execution_policy="isolated_prompt",
+        ),
+        case=BenchmarkCase(
+            schema_version=1,
+            id="uiux.generate.native-codex-skill",
+            title="Native Codex Skill",
+            mode=BenchmarkMode.GENERATE,
+            prompt="Generate a page.",
+        ),
+        execution_policy=get_execution_policy("isolated_prompt"),
+        skill_paths=[skill_dir],
+    )
+
+    result = BenchmarkService(NativeCodexRuntime()).run_case(case)
+
+    assert result.skill_binding.requested_skills == ["uiux"]
+    assert result.skill_binding.injected_skills == ["uiux"]
+    assert result.skill_binding.registered_skills == []
+    assert result.skill_binding.registration_status == "materialized"
+    assert result.skill_binding.registration_confirmed is None
+    assert result.skill_binding.registration_evidence == "runtime_metadata.codex_home_skills"
+    assert result.skill_binding.usage_confirmed is None
+
+
 def test_service_can_attach_judge_assessment():
     case = ResolvedCase(
         suite=BenchmarkSuite(
