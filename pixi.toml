@@ -10,10 +10,6 @@ python = ">=3.11"
 pytest = ">=9"
 agent-skill-bench = { path = "agent-skill-bench" }
 
-[pypi-dependencies]
-claude-agent-sdk = ">=0.1.48"
-markdown-it-py = ">=4.0.0"
-
 [tasks]
 test = "pytest agent-skill-bench/tests/ -v"
 bench = "agent-skill-bench"

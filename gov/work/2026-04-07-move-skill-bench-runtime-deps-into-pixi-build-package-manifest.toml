@@ -1,0 +1,22 @@
+#:schema ../schema/work.schema.json
+
+[govctl]
+id = "WI-2026-04-07-008"
+title = "move skill-bench runtime deps into pixi-build package manifest"
+status = "active"
+created = "2026-04-07"
+started = "2026-04-07"
+refs = ["RFC-0001"]
+
+[content]
+description = "Declare agent-skill-bench runtime dependencies in its pixi-build package manifest instead of the root workspace so path-package builds resolve dependencies through package.run-dependencies."
+
+[[content.acceptance_criteria]]
+text = "agent-skill-bench pixi-build manifest declares its runtime dependencies in package.run-dependencies and root workspace no longer carries that package-local PyPI workaround."
+status = "pending"
+category = "fixed"
+
+[[content.acceptance_criteria]]
+text = "govctl verify passes"
+status = "pending"
+category = "chore"

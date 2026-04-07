@@ -10,3 +10,5 @@ hatchling = "*"
 
 [package.run-dependencies]
 python = ">=3.11"
+claude-agent-sdk = ">=0.1.48"
+markdown-it-py = ">=4.0.0"
